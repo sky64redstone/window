@@ -13,7 +13,7 @@
   namespace window {
 
     #if defined(window_x11) && defined(window_wl)
-      bool is_valid_wl(const window_wl_data& data) {
+      static bool is_valid_wl(const window_wl_data& data) {
         return data.display != nullptr;
       }
     #endif
