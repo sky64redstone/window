@@ -89,10 +89,6 @@ namespace window {
     win32.y = -1;
     win32.width = -1;
     win32.height = -1;
-
-#define TO_STRING(x) #x
-#define EXPAND_AND_STRINGIFY(x) TO_STRING(x)
-    fprintf(stdout, "dll api type: %s\n", EXPAND_AND_STRINGIFY(window_api));
   }
 
   window::~window() noexcept {

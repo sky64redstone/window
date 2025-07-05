@@ -1,17 +1,5 @@
 #include <include/window.hpp>
 
-#ifdef window_os_linux
-  #include <GLES2/gl2.h>
-#endif
-
-#if defined(window_win32)
-  #define NOMINMAX
-  #define WIN32_LEAN_AND_MEAN
-  #include <Windows.h>
-  #include <dwmapi.h>
-  #include <gl/GL.h>
-#endif
-
 int main() {
   window::window win{};
 
