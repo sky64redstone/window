@@ -25,7 +25,7 @@
       result create(int width, int height, const char* title) noexcept;
 
       result set_title(const char* title) const noexcept;
-      result set_size(int width, int height) const noexcept;
+      result set_size(int width, int height) noexcept;
 
       bool is_open() const noexcept;
       result poll_events() noexcept;
