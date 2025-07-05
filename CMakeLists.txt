@@ -10,6 +10,12 @@ macro(dependent_option OPTION_NAME OPTION_DESC DEFAULT_VALUE DEP_CONDITION)
     endif()
 endmacro()
 
+# Enable Hot Reload for MSVC compilers if supported.
+if (POLICY CMP0141)
+  cmake_policy(SET CMP0141 NEW)
+  set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<IF:$<AND:$<C_COMPILER_ID:MSVC>,$<CXX_COMPILER_ID:MSVC>>,$<$<CONFIG:Debug,RelWithDebInfo>:EditAndContinue>,$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>>")
+endif()
+
 # CMake Options
 dependent_option(window_win32 "Enable win32 support" ON "WIN32" OFF)
 dependent_option(window_x11   "Enable x11 support"   ON "UNIX"  OFF)

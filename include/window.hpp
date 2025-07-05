@@ -4,8 +4,8 @@
   #include "platform.hpp"
 
   namespace window {
-    class window {
-    private:
+    class window_api window {
+    public:
       #if defined(window_x11)
         window_x11_data x11;
       #endif

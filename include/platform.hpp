@@ -10,6 +10,8 @@
   #endif
 
   #if defined(window_os_linux)
+    #define window_api __attribute__((visibility("default")))
+
     // include X11 stuff if needed
     #if defined(window_x11)
       #include <X11/X.h>
@@ -60,10 +62,29 @@
       };
     #endif
   #elif defined(window_os_win32)
-    #if defined(window_win32)
-      #include <Windows.h> // TODO: windows integration
+    #ifdef window_build
+      #define window_api __declspec(dllexport)
+    #else
+      #define window_api __declspec(dllimport)
+    #endif
 
-      struct window_win32_data {};
+    #if defined(window_win32)
+      #define NOMINMAX
+      #define WIN32_LEAN_AND_MEAN
+      #include <Windows.h>
+      #include <dwmapi.h>
+      #include <gl/GL.h>
+
+      struct window_win32_data {
+        HWND win;
+        HDC dc;
+        HGLRC rc;
+        bool isopen;
+        int x;
+        int y;
+        int width;
+        int height;
+      };
     #endif
   #endif
 
@@ -93,7 +114,10 @@
       BADALLOC,
       // the operation failed, because previous
       // functions weren't set up properly
-      UNKNOWNFAILURE
+      UNKNOWNFAILURE,
+      // the operation was aborted, because
+      // a quit message was received
+      QUIT
     };
   }
 
