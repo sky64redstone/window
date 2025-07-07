@@ -1,14 +1,6 @@
 #include "include/input.hpp"
 #include "include/platform.hpp"
 
-#ifdef window_x11
-#endif
-
-#ifdef window_wl
-#endif
-
-#ifdef window_win32
-
 namespace window {
   inline key_descriptor win32_keycodes[0xFF] = { { KEY_COUNT, "ERROR" } };
 
@@ -180,5 +172,3 @@ namespace window {
     return win32_buttoncodes[os_button];
   }
 }
-
-#endif
