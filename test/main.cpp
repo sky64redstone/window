@@ -1,10 +1,35 @@
 #include <include/window.hpp>
 
+#include <stdio.h>
+
+static void key_event(bool down, window::key_descriptor& k) noexcept {
+  if (down)
+    printf("Key pressed: %s\n", k.description);
+}
+
+static void btn_event(bool down, window::button_descriptor& b) noexcept {
+  if (down)
+    printf("Button pressed: %s\n", b.description);
+}
+
+static void dblclk_event(window::button_descriptor& b) noexcept {
+  printf("Button double click: %s\n", b.description);
+}
+
+static void wheel_event(float delta) noexcept {
+  printf("Mouse wheel delta: %f\n", delta);
+}
+
 int main() {
   window::window win{};
 
   win.create(300, 200, "TEST! :)");
   win.make_opengl_context();
+
+  win.set_key_event(key_event);
+  win.set_btn_event(btn_event);
+  win.set_dblclk_event(dblclk_event);
+  win.set_wheel_event(wheel_event);
 
   glViewport(0, 0, 300, 200);
   glClearColor(0.f, 0.f, 0.f, 1.f);

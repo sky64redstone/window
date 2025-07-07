@@ -9,6 +9,8 @@
     #define window_os_win32
   #endif
 
+  #include "input.hpp"
+
   #if defined(window_os_linux)
     #define window_api __attribute__((visibility("default")))
 
@@ -76,6 +78,7 @@
       #include <gl/GL.h>
 
       struct window_win32_data {
+        window::input_data* input;
         HWND win;
         HDC dc;
         HGLRC rc;

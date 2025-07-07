@@ -63,6 +63,103 @@ namespace window {
 
         return 0;
       }
+      case WM_KEYDOWN:
+      case WM_KEYUP: {
+        key_descriptor descriptor = ::window::os_to_key(w);
+        data->input->keys[descriptor.k] = input_char(msg == WM_KEYDOWN, l & (1 << 30));
+
+        if (data->input->key_event != nullptr)
+          data->input->key_event(msg == WM_KEYDOWN, descriptor);
+
+        return 0;
+      }
+      case WM_SYSKEYDOWN:
+      case WM_SYSKEYUP: {
+        key_descriptor descriptor = ::window::os_to_key(w);
+        data->input->keys[descriptor.k] = input_char(msg == WM_SYSKEYDOWN, l & (1 << 30));
+
+        if (data->input->key_event != nullptr)
+          data->input->key_event(msg == WM_SYSKEYDOWN, descriptor);
+
+        return 0;
+      }
+      case WM_LBUTTONDOWN:
+      case WM_LBUTTONUP:
+      case WM_RBUTTONDOWN:
+      case WM_RBUTTONUP:
+      case WM_MBUTTONDOWN:
+      case WM_MBUTTONUP:
+      case WM_XBUTTONDOWN:
+      case WM_XBUTTONUP: {
+        int btn = 0;
+        bool down;
+
+        switch (msg) {
+        case WM_LBUTTONDOWN: btn = VK_LBUTTON; down = true; break;
+        case WM_LBUTTONUP: btn = VK_LBUTTON; down = false; break;
+        case WM_RBUTTONDOWN: btn = VK_RBUTTON; down = true; break;
+        case WM_RBUTTONUP: btn = VK_RBUTTON; down = false; break;
+        case WM_MBUTTONDOWN: btn = VK_MBUTTON; down = true; break;
+        case WM_MBUTTONUP: btn = VK_MBUTTON; down = false; break;
+        case WM_XBUTTONDOWN: btn = VK_XBUTTON1 + HIWORD(w) - 1; down = true; break;
+        case WM_XBUTTONUP: btn = VK_XBUTTON1 + HIWORD(w) - 1; down = false; break;
+        }
+
+        button_descriptor descriptor = ::window::os_to_button(btn);
+        data->input->buttons[descriptor.b] = down;
+
+        if (data->input->button_event != nullptr)
+          data->input->button_event(down, descriptor);
+
+        return 0;
+      }
+      case WM_LBUTTONDBLCLK:
+      case WM_RBUTTONDBLCLK:
+      case WM_MBUTTONDBLCLK:
+      case WM_XBUTTONDBLCLK: {
+        int btn = 0;
+
+        switch (msg) {
+        case WM_LBUTTONDBLCLK: btn = VK_LBUTTON; break;
+        case WM_RBUTTONDBLCLK: btn = VK_RBUTTON; break;
+        case WM_MBUTTONDBLCLK: btn = VK_MBUTTON; break;
+        case WM_XBUTTONDBLCLK: btn = VK_XBUTTON1 + HIWORD(w) - 1; break;
+        }
+
+        button_descriptor descriptor = ::window::os_to_button(btn);
+        data->input->buttons[descriptor.b] = true;
+
+        if (data->input->dblclk_event != nullptr)
+          data->input->dblclk_event(descriptor);
+        // if we have no double click handler, we just prepend, 
+        // that its a normal second mouse button click
+        else if (data->input->button_event != nullptr)
+          data->input->button_event(true, descriptor);
+
+        return 0;
+      }
+      case WM_MOUSEMOVE: {
+        int xPos = LOWORD(l);
+        int yPos = HIWORD(l);
+
+        data->input->mouseX = xPos;
+        data->input->mouseY = yPos;
+
+        if (data->input->mouse_event != nullptr)
+          data->input->mouse_event(xPos, yPos);
+
+        return 0;
+      }
+      case WM_MOUSEWHEEL: {
+        float wheel_delta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(w)) / static_cast<float>(WHEEL_DELTA);
+
+        data->input->mouse_wheel += wheel_delta;
+
+        if (data->input->wheel_event != nullptr)
+          data->input->wheel_event(wheel_delta);
+
+        return 0;
+      }
       case WM_CLOSE: {
         data->isopen = false;
 
@@ -80,10 +177,15 @@ namespace window {
   }
 
   window::window() noexcept {
+    os_to_key(0); // pre load keys
+    input = {};
+    input.key_event = nullptr;
+    input.button_event = nullptr;
     win32 = {};
     win32.win = nullptr;
     win32.dc = nullptr;
     win32.rc = nullptr;
+    win32.input = &input;
     win32.isopen = false;
     win32.x = -1;
     win32.y = -1;
@@ -102,7 +204,7 @@ namespace window {
 
     if (classAtom == 0) {
       WNDCLASSA wcls{
-        .style         = CS_HREDRAW | CS_VREDRAW | CS_OWNDC,
+        .style         = CS_HREDRAW | CS_VREDRAW | CS_OWNDC | CS_DBLCLKS,
         .lpfnWndProc   = win32::global_window_event,
         .cbClsExtra    = 0,
         .cbWndExtra    = 0,
@@ -226,6 +328,36 @@ namespace window {
       return UNSUPPORTED;
     }
     win32::wglSwapIntervalEXT(interval);
+  }
+
+  key_event_callback window::set_key_event(key_event_callback func) noexcept {
+    key_event_callback temp = input.key_event;
+    input.key_event = func;
+    return temp;
+  }
+
+  button_event_callback window::set_btn_event(button_event_callback func) noexcept {
+    button_event_callback temp = input.button_event;
+    input.button_event = func;
+    return temp;
+  }
+
+  dblclk_event_callback window::set_dblclk_event(dblclk_event_callback func) noexcept {
+    dblclk_event_callback temp = input.dblclk_event;
+    input.dblclk_event = func;
+    return temp;
+  }
+
+  mouse_event_callback window::set_mouse_event(mouse_event_callback func) noexcept {
+    mouse_event_callback temp = input.mouse_event;
+    input.mouse_event = func;
+    return temp;
+  }
+
+  wheel_event_callback window::set_wheel_event(wheel_event_callback func) noexcept {
+    wheel_event_callback temp = input.wheel_event;
+    input.wheel_event = func;
+    return temp;
   }
 
   void window::destroy() noexcept {
