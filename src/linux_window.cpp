@@ -17,8 +17,10 @@ namespace window {
   #endif
 
   window::window() noexcept {
+    input = {};
     #ifdef window_x11
       x11 = {};
+      x11.input    = &input;
       x11.display  = nullptr;
       x11.root     = None;
       x11.win      = None;
@@ -169,6 +171,36 @@ namespace window {
     #if defined(window_wl) && !defined(window_x11)
       return wl::swap_interval(wl, interval);
     #endif
+  }
+
+  key_event_callback window::set_key_event(key_event_callback func) noexcept {
+    key_event_callback temp = input.key_event;
+    input.key_event = func;
+    return temp;
+  }
+
+  button_event_callback window::set_btn_event(button_event_callback func) noexcept {
+    button_event_callback temp = input.button_event;
+    input.button_event = func;
+    return temp;
+  }
+
+  dblclk_event_callback window::set_dblclk_event(dblclk_event_callback func) noexcept {
+    dblclk_event_callback temp = input.dblclk_event;
+    input.dblclk_event = func;
+    return temp;
+  }
+
+  mouse_event_callback window::set_mouse_event(mouse_event_callback func) noexcept {
+    mouse_event_callback temp = input.mouse_event;
+    input.mouse_event = func;
+    return temp;
+  }
+
+  wheel_event_callback window::set_wheel_event(wheel_event_callback func) noexcept {
+    wheel_event_callback temp = input.wheel_event;
+    input.wheel_event = func;
+    return temp;
   }
 
   void window::destroy() noexcept {

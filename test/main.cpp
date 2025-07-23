@@ -20,6 +20,10 @@ static void wheel_event(float delta) noexcept {
   printf("Mouse wheel delta: %f\n", delta);
 }
 
+static void mouse_event(int x, int y) noexcept {
+  printf("Mouse moved: %i, %i\n", x, y);
+}
+
 int main() {
   window::window win{};
 
@@ -30,6 +34,7 @@ int main() {
   win.set_btn_event(btn_event);
   win.set_dblclk_event(dblclk_event);
   win.set_wheel_event(wheel_event);
+  win.set_mouse_event(mouse_event);
 
   glViewport(0, 0, 300, 200);
   glClearColor(0.f, 0.f, 0.f, 1.f);

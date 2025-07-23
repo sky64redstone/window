@@ -1,5 +1,5 @@
 #include "include/x11.hpp"
-
+#include <sys/time.h> // for gettimeofday (for double click events)
 #include <stdio.h> // printf for x11 error handler
 
 namespace window {
@@ -171,27 +171,75 @@ namespace window {
         }
         case KeyPress:
         case KeyRelease: {
-          KeySym sym = XLookupKeysym(&event.xkey, 0);
-          // TODO keyboard integration
+          KeySym keysym = XLookupKeysym(&event.xkey, 0);
+
+          key_descriptor key = os_to_key(keysym);
+
+          if (data.input->key_event) {
+            data.input->key_event(event.type == KeyPress, key);
+          }
+
+          //unsigned int keycode = event.xkey.keycode;
+          //printf("Key: %s (%s:0x%lx)\n", key.description, XKeysymToString(keysym), keysym);
+
           break;
         }
         case ButtonPress:
         case ButtonRelease: {
           // TODO mouse integration
+
+          // Vertical Scrolling :)
+          if (event.xbutton.button == 4) {
+            // WHEEL_DELTA is on windows 120, but x11 doesn't support 
+            // high resolution scrolling :(
+            if (data.input->wheel_event != nullptr) {
+              data.input->wheel_event(-120); 
+            }
+            break;
+          }
+
+          if (event.xbutton.button == 5) {
+            if (data.input->wheel_event != nullptr) {
+              data.input->wheel_event(120);
+            }
+            break;
+          }
+
+          // Horiziontal Scrolling :)
+          if (event.xbutton.button == 6 ||
+              event.xbutton.button == 7) {
+            break; // currently not supported
+          }
+          
+          static unsigned long last_click = (unsigned long)-1;
+
+          button_descriptor b = os_to_button(event.xbutton.button);
+
+          timeval t; gettimeofday(&t, NULL);
+          unsigned long now = t.tv_sec * 1000 + t.tv_usec / 1000;
+          
+          // The recommended delta time for a double click
+          // from Microsoft is: 500ms
+          if (now - last_click <= 500/*ms delta*/) {
+            if (data.input->dblclk_event != nullptr) {
+              data.input->dblclk_event(b);
+            }
+            break;
+          }
+
+          if (data.input->button_event != nullptr) {
+            data.input->button_event(event.type == ButtonPress, b);
+            last_click = now;
+          }
+
           break;
         }
         case MotionNotify: {
-          // TODO mouse integration
-          break;
-        }
-        case FocusIn:
-        case FocusOut: {
-          // TODO key focus
-          break;
-        }
-        case EnterNotify:
-        case LeaveNotify: {
-          // TODO mouse focus
+          
+          if (data.input->mouse_event != nullptr) {
+            data.input->mouse_event(event.xmotion.x, event.xmotion.y);
+          }
+
           break;
         }
         case ClientMessage: {
@@ -229,16 +277,22 @@ namespace window {
 
     void destroy(window_x11_data& data) noexcept {
       // opengl
-      glXMakeCurrent(data.display, None, nullptr);
-      glXDestroyContext(data.display, data.context);
-      data.context = nullptr;
+      if (data.context != nullptr) {
+        glXMakeCurrent(data.display, None, nullptr);
+        glXDestroyContext(data.display, data.context);
+        data.context = nullptr;
+      }
       // window
-      XDestroyWindow(data.display, data.win);
-      data.isopen = false;
-      data.win = None;
+      if (data.win != None) {
+        XDestroyWindow(data.display, data.win);
+        data.isopen = false;
+        data.win = None;
+      }
       // display
-      XCloseDisplay(data.display);
-      data.display = nullptr;
+      if (data.display != nullptr) {
+        XCloseDisplay(data.display);
+        data.display = nullptr;
+      }
     }
 
   } // namespace x11

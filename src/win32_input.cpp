@@ -147,7 +147,7 @@ namespace window {
     return win32_keycodes[os_key];
   }
 
-  button_descriptor win32_buttoncodes[VK_XBUTTON2 + 1] = { { BUTTON_COUNT, "Unknown" } };
+  button_descriptor win32_buttoncodes[VK_XBUTTON2 + 1] = { { BUTTON_COUNT, "ERROR" } };
 
   static void load_win32_buttons() noexcept {
     if (win32_buttoncodes[0].b != BUTTON_COUNT)

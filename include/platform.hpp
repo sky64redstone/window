@@ -23,6 +23,7 @@
       #include <GL/glx.h>
       // x11 data struct
       struct window_x11_data {
+        ::window::input_data* input;
         Display*   display;
         Window     root;
         Window     win;

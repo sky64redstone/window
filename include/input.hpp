@@ -76,6 +76,7 @@
       KEY_PERIOD,
 
       // Keyboard specific keys
+      // TODO remove, because of cross-platform in-compatible
       KEY_OEM1, // Keyboard specific: US: ;: DE: üÜ
       KEY_OEM2, // Keyboard specific: US: /? DE: #'
       KEY_OEM3, // Keyboard specific: US: `~ DE: öÖ
@@ -106,7 +107,7 @@
 
       BUTTON_COUNT
     };
-    // TODO double click
+
     struct button_descriptor {
       button b;
       const char* description;
