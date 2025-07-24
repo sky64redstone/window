@@ -225,18 +225,31 @@ namespace window {
           timeval t; gettimeofday(&t, NULL);
           unsigned long now = t.tv_sec * 1000 + t.tv_usec / 1000;
           
-          // The recommended delta time for a double click
-          // from Microsoft is: 500ms
-          if (now - last_click <= 500/*ms delta*/) {
-            if (data.input->dblclk_event != nullptr) {
-              data.input->dblclk_event(b);
+          // Only generate double click events on pressing the button,
+          // not on releasing it
+          if (event.type == ButtonPress) {
+            // The recommended delta time for a double click
+            // from Microsoft is: 500ms
+            // TODO hint for the delta time!
+            if (now - last_click <= 500/*ms delta*/) {
+              if (data.input->dblclk_event != nullptr) {
+                data.input->dblclk_event(b);
+              }
+              // if we have no double click handler, we just prepend, 
+              // that its a normal second mouse button click
+              else if (data.input->button_event != nullptr) {
+                data.input->button_event(true, b);
+                lastclick = now;
+              }
+              break;
             }
-            break;
           }
 
           if (data.input->button_event != nullptr) {
             data.input->button_event(event.type == ButtonPress, b);
-            last_click = now;
+            if (event.type == ButtonPress) {
+              last_click = now;
+            }
           }
 
           break;
