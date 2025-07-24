@@ -43,6 +43,7 @@
       dblclk_event_callback set_dblclk_event(dblclk_event_callback func) noexcept;
       mouse_event_callback  set_mouse_event(mouse_event_callback   func) noexcept;
       wheel_event_callback  set_wheel_event(wheel_event_callback   func) noexcept;
+      size_event_callback   set_size_event(size_event_callback     func) noexcept;
 
       void destroy() noexcept;
     };

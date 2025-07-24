@@ -50,8 +50,12 @@ namespace window {
         return 0;
       }
       case WM_SIZE: {
-        data->x = LOWORD(l);
-        data->y = HIWORD(l);
+        data->width  = LOWORD(l);
+        data->height = HIWORD(l);
+
+        if (data->input->size_event != nullptr) {
+          data->input->size_event(data->width, data->height);
+        }
 
         return 0;
       }
@@ -179,8 +183,6 @@ namespace window {
   window::window() noexcept {
     os_to_key(0); // pre load keys
     input = {};
-    input.key_event = nullptr;
-    input.button_event = nullptr;
     win32 = {};
     win32.win = nullptr;
     win32.dc = nullptr;
@@ -357,6 +359,12 @@ namespace window {
   wheel_event_callback window::set_wheel_event(wheel_event_callback func) noexcept {
     wheel_event_callback temp = input.wheel_event;
     input.wheel_event = func;
+    return temp;
+  }
+
+  size_event_callback window::set_size_event(size_event_callback func) noexcept {
+    size_event_callback temp = input.size_event;
+    input.size_event = func;
     return temp;
   }
 

@@ -203,6 +203,12 @@ namespace window {
     return temp;
   }
 
+  size_event_callback window::set_size_event(size_event_callback func) noexcept {
+    size_event_callback temp = input.size_event;
+    input.size_event = func;
+    return temp;
+  }
+
   void window::destroy() noexcept {
     #if defined(window_wl) && defined(window_x11)
       if (is_valid_wl(wl)) {

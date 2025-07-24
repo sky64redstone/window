@@ -120,6 +120,7 @@
     using dblclk_event_callback = void(*)(button_descriptor& b);
     using mouse_event_callback  = void(*)(int x, int y);
     using wheel_event_callback  = void(*)(float delta);
+    using size_event_callback   = void(*)(int w, int h);
 
     struct input_data {
       key_event_callback    key_event;
@@ -127,6 +128,7 @@
       dblclk_event_callback dblclk_event;
       mouse_event_callback  mouse_event;
       wheel_event_callback  wheel_event;
+      size_event_callback   size_event;
 
       char keys[KEY_COUNT];
 
