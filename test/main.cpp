@@ -1,6 +1,7 @@
 #include <include/window.hpp>
 
 #include <stdio.h>
+#include <stdlib.h>
 
 static void key_event(bool down, window::key_descriptor& k) noexcept {
   if (down)
@@ -25,11 +26,33 @@ static void hscroll_event(float delta) noexcept {
 }
 
 static void mouse_event(int x, int y) noexcept {
-  printf("Mouse moved: %i, %i\n", x, y);
+  // we use a threshold to not spam or console full :)
+  const int threshold = 50;
+
+  static int last_x = -threshold;
+  static int last_y = -threshold;
+
+  if (abs(x - last_x) >= threshold || abs(y - last_y) >= threshold) {
+    last_x = x;
+    last_y = y;
+    printf("Mouse moved: %d, %d\n", x, y);
+  }
 }
 
 static void size_event(int w, int h) noexcept {
-  printf("Window resized: %i, %i\n", w, h);
+  // we use a threshold to not spam or console full :)
+  const int threshold = 50;
+
+  static int last_w = -threshold;
+  static int last_h = -threshold;
+
+  if (abs(w - last_w) >= threshold || abs(h - last_h) >= threshold) {
+    last_w = w;
+    last_h = h;
+    printf("Window resized: %i, %i\n", w, h);
+  }
+
+  glViewport(0, 0, w, h);
 }
 
 int main() {
