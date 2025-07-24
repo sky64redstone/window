@@ -159,8 +159,18 @@ namespace window {
 
         data->input->mouse_wheel += wheel_delta;
 
-        if (data->input->wheel_event != nullptr)
-          data->input->wheel_event(wheel_delta);
+        if (data->input->vscroll_event != nullptr)
+          data->input->vscroll_event(wheel_delta);
+
+        return 0;
+      }
+      case WM_MOUSEHWHEEL: {
+        float wheel_delta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(w)) / static_cast<float>(WHEEL_DELTA);
+
+        data->input->mouse_wheel += wheel_delta;
+
+        if (data->input->hscroll_event != nullptr)
+          data->input->hscroll_event(wheel_delta);
 
         return 0;
       }
@@ -356,9 +366,15 @@ namespace window {
     return temp;
   }
 
-  wheel_event_callback window::set_wheel_event(wheel_event_callback func) noexcept {
-    wheel_event_callback temp = input.wheel_event;
-    input.wheel_event = func;
+  scroll_event_callback window::set_vscroll_event(scroll_event_callback func) noexcept {
+    scroll_event_callback temp = input.vscroll_event;
+    input.vscroll_event = func;
+    return temp;
+  }
+
+  scroll_event_callback window::set_hscroll_event(scroll_event_callback func) noexcept {
+    scroll_event_callback temp = input.hscroll_event;
+    input.hscroll_event = func;
     return temp;
   }
 

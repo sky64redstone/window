@@ -38,12 +38,13 @@
       result swap_buffers() const noexcept;
       result swap_interval(int interval) const noexcept;
 
-      key_event_callback    set_key_event(key_event_callback       func) noexcept;
-      button_event_callback set_btn_event(button_event_callback    func) noexcept;
-      dblclk_event_callback set_dblclk_event(dblclk_event_callback func) noexcept;
-      mouse_event_callback  set_mouse_event(mouse_event_callback   func) noexcept;
-      wheel_event_callback  set_wheel_event(wheel_event_callback   func) noexcept;
-      size_event_callback   set_size_event(size_event_callback     func) noexcept;
+      key_event_callback    set_key_event(key_event_callback        func) noexcept;
+      button_event_callback set_btn_event(button_event_callback     func) noexcept;
+      dblclk_event_callback set_dblclk_event(dblclk_event_callback  func) noexcept;
+      mouse_event_callback  set_mouse_event(mouse_event_callback    func) noexcept;
+      scroll_event_callback set_vscroll_event(scroll_event_callback func) noexcept;
+      scroll_event_callback set_hscroll_event(scroll_event_callback func) noexcept;
+      size_event_callback   set_size_event(size_event_callback      func) noexcept;
 
       void destroy() noexcept;
     };

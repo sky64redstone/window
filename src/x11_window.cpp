@@ -190,25 +190,32 @@ namespace window {
 
           // Vertical Scrolling :)
           if (event.xbutton.button == 4) {
-            // WHEEL_DELTA is on windows 120, but x11 doesn't support 
-            // high resolution scrolling :(
-            if (data.input->wheel_event != nullptr) {
-              data.input->wheel_event(-120); 
+            if (data.input->vscroll_event != nullptr) {
+              data.input->vscroll_event(-1);
             }
             break;
           }
 
           if (event.xbutton.button == 5) {
-            if (data.input->wheel_event != nullptr) {
-              data.input->wheel_event(120);
+            if (data.input->vscroll_event != nullptr) {
+              data.input->vscroll_event(1);
             }
             break;
           }
 
           // Horiziontal Scrolling :)
-          if (event.xbutton.button == 6 ||
-              event.xbutton.button == 7) {
-            break; // currently not supported
+          if (event.xbutton.button == 6) {
+            if (data.input->hscroll_event != nullptr) {
+              data.input->hscroll_event(-1);
+            }
+            break;
+          }
+
+          if (event.xbutton.button == 7) {
+            if (data.input->hscroll_event != nullptr) {
+              data.input->hscroll_event(1);
+            }
+            break;
           }
           
           static unsigned long last_click = (unsigned long)-1;

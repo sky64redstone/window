@@ -16,8 +16,12 @@ static void dblclk_event(window::button_descriptor& b) noexcept {
   printf("Button double click: %s\n", b.description);
 }
 
-static void wheel_event(float delta) noexcept {
-  printf("Mouse wheel delta: %f\n", delta);
+static void vscroll_event(float delta) noexcept {
+  printf("Mouse wheel vertical delta: %f\n", delta);
+}
+
+static void hscroll_event(float delta) noexcept {
+  printf("Mouse wheel horiziontal delta: %f\n", delta);
 }
 
 static void mouse_event(int x, int y) noexcept {
@@ -39,7 +43,8 @@ int main() {
   win.set_key_event(key_event);
   win.set_btn_event(btn_event);
   win.set_dblclk_event(dblclk_event);
-  win.set_wheel_event(wheel_event);
+  win.set_vscroll_event(vscroll_event);
+  win.set_hscroll_event(hscroll_event);
   win.set_mouse_event(mouse_event);
   win.set_size_event(size_event);
   

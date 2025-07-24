@@ -197,9 +197,15 @@ namespace window {
     return temp;
   }
 
-  wheel_event_callback window::set_wheel_event(wheel_event_callback func) noexcept {
-    wheel_event_callback temp = input.wheel_event;
-    input.wheel_event = func;
+  scroll_event_callback window::set_vscroll_event(scroll_event_callback func) noexcept {
+    scroll_event_callback temp = input.vscroll_event;
+    input.vscroll_event = func;
+    return temp;
+  }
+
+  scroll_event_callback window::set_hscroll_event(scroll_event_callback func) noexcept {
+    scroll_event_callback temp = input.hscroll_event;
+    input.hscroll_event = func;
     return temp;
   }
 
