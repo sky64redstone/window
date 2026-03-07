@@ -37,15 +37,21 @@ namespace window {
       wl.display      = nullptr;
       wl.compositor   = nullptr;
       wl.surface      = nullptr;
+      wl.registry     = nullptr;
+
       wl.xwm_base     = nullptr;
       wl.xsurface     = nullptr;
       wl.xtoplevel    = nullptr;
-      wl.registry     = nullptr;
+
+      wl.decoration_manager = nullptr;
+      wl.decoration   = nullptr;
+
       wl.egl_window   = nullptr;
       wl.egl_display  = nullptr;
       wl.egl_config   = nullptr;
       wl.egl_context  = nullptr;
       wl.egl_surface  = nullptr;
+
       wl.isopen       = false;
       wl.width        = -1;
       wl.height       = -1;

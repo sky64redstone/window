@@ -29,6 +29,57 @@ if (window_x11)
 endif()
 if (window_wl)
   message(STATUS "Wayland support enabled")
+
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(WAYLAND REQUIRED wayland-client)
+
+  find_program(WAYLAND_SCANNER wayland-scanner REQUIRED)
+
+  set(WAYLAND_PROTOCOL_DIR /usr/share/wayland-protocols)
+
+  set(XDG_SHELL_XML
+      ${WAYLAND_PROTOCOL_DIR}/stable/xdg-shell/xdg-shell.xml)
+
+  set(XDG_DECOR_XML
+      ${WAYLAND_PROTOCOL_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml)
+
+  set(XDG_SHELL_SOURCE ${CMAKE_SOURCE_DIR}/src/xdg-shell-protocol.c)
+  set(XDG_SHELL_HEADER ${CMAKE_SOURCE_DIR}/include/xdg-shell-client-protocol.h)
+
+  set(XDG_DECOR_SOURCE ${CMAKE_SOURCE_DIR}/src/xdg-decoration-protocol.c)
+  set(XDG_DECOR_HEADER ${CMAKE_SOURCE_DIR}/include/xdg-decoration-client-protocol.h)
+
+  add_custom_command(
+      OUTPUT ${XDG_SHELL_SOURCE} ${XDG_SHELL_HEADER}
+      COMMAND ${WAYLAND_SCANNER} client-header ${XDG_SHELL_XML} ${XDG_SHELL_HEADER}
+      COMMAND ${WAYLAND_SCANNER} private-code ${XDG_SHELL_XML} ${XDG_SHELL_SOURCE}
+      DEPENDS ${XDG_SHELL_XML}
+  )
+
+  add_custom_command(
+      OUTPUT ${XDG_DECOR_SOURCE} ${XDG_DECOR_HEADER}
+      COMMAND ${WAYLAND_SCANNER} client-header ${XDG_DECOR_XML} ${XDG_DECOR_HEADER}
+      COMMAND ${WAYLAND_SCANNER} private-code ${XDG_DECOR_XML} ${XDG_DECOR_SOURCE}
+      DEPENDS ${XDG_DECOR_XML}
+  )
+
+  add_custom_target(wayland_protocols
+      DEPENDS
+          ${XDG_SHELL_SOURCE}
+          ${XDG_SHELL_HEADER}
+          ${XDG_DECOR_SOURCE}
+          ${XDG_DECOR_HEADER}
+  )
+
+  set(WL_GENERATED_SOURCES
+      ${XDG_SHELL_SOURCE}
+      ${XDG_DECOR_SOURCE}
+  )
+
+  set(WL_GENERATED_HEADERS
+      ${XDG_SHELL_HEADER}
+      ${XDG_DECOR_HEADER}
+  )
 endif()
 
 set(CMAKE_CXX_STANDARD 20)

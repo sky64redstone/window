@@ -239,7 +239,7 @@ namespace window {
               // that its a normal second mouse button click
               else if (data.input->button_event != nullptr) {
                 data.input->button_event(true, b);
-                lastclick = now;
+                last_click = now;
               }
               break;
             }

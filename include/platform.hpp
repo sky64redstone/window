@@ -45,20 +45,27 @@
       #include <GLES2/gl2.h>
       
       #include "xdg-shell-client-protocol.h"
+      #include "xdg-decoration-client-protocol.h"
 
       struct window_wl_data {
         wl_display*    display;
         wl_compositor* compositor;
         wl_surface*    surface;
+        wl_registry*   registry;
+
         xdg_wm_base*   xwm_base;
         xdg_surface*   xsurface;
         xdg_toplevel*  xtoplevel;
-        wl_registry*   registry;
+
+        zxdg_decoration_manager_v1* decoration_manager;
+        zxdg_toplevel_decoration_v1* decoration;
+
         wl_egl_window* egl_window;
         EGLDisplay     egl_display;
         EGLConfig      egl_config;
         EGLContext     egl_context;
         EGLSurface     egl_surface;
+
         bool           isopen;
         int            width;
         int            height;

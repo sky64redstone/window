@@ -20,9 +20,26 @@ if (window_x11)
 endif()
 
 if (window_wl)
+  add_dependencies(window wayland_protocols)
+
+  set_source_files_properties(${WL_GENERATED_SOURCES} PROPERTIES GENERATED TRUE)
+
+  target_sources(window PRIVATE
+    wl_window.cpp
+    wl_input.cpp
+    ${WL_GENERATED_SOURCES}
+  )
+
+  target_include_directories(window PRIVATE
+    ${CMAKE_BINARY_DIR}
+  )
+
+  target_link_libraries(window
+    PUBLIC wayland-client EGL wayland-egl GLESv2
+  )
+
   target_compile_definitions(window PUBLIC window_wl)
-  target_sources(window PRIVATE wl_window.cpp wl_input.cpp xdg-shell-protocol.c)
-  target_link_libraries(window PUBLIC wayland-client EGL wayland-egl GLESv2)
+
 endif()
 
 if (window_x11 OR window_wl)

@@ -61,6 +61,7 @@ int main() {
   // creating the opengl window
   win.create(300, 200, "TEST! :)");
   win.make_opengl_context();
+  printf("OpenGL: %s\n", glGetString(GL_VERSION));
 
   // setting event callbacks up
   win.set_key_event(key_event);
