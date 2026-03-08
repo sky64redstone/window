@@ -33,9 +33,26 @@ if (window_wl)
     ${CMAKE_BINARY_DIR}
   )
 
-  target_link_libraries(window
-    PUBLIC wayland-client EGL wayland-egl GLESv2 xkbcommon
-  )
+  if (window_no_pkg)
+    message(STATUS "PkgConfig disabled")
+    target_link_libraries(window
+      PUBLIC
+        wayland-client EGL
+        wayland-egl GLESv2
+        xkbcommon
+    )
+  else()
+    message(STATUS "PkgConfig enabled")
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(DEPS REQUIRED IMPORTED_TARGET
+      wayland-client egl
+      wayland-egl glesv2
+      xkbcommon
+    )
+    target_link_libraries(window
+      PUBLIC PkgConfig::DEPS
+    )
+  endif()
 
   target_compile_definitions(window PUBLIC window_wl)
 

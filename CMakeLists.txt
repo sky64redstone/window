@@ -17,6 +17,7 @@ if (POLICY CMP0141)
 endif()
 
 # CMake Options
+option(window_no_pkg          "Disable PkgConfig"    OFF)
 dependent_option(window_win32 "Enable win32 support" ON "WIN32" OFF)
 dependent_option(window_x11   "Enable x11 support"   ON "UNIX"  OFF)
 dependent_option(window_wl    "Enable wl support"    ON "UNIX"  OFF)
@@ -29,9 +30,6 @@ if (window_x11)
 endif()
 if (window_wl)
   message(STATUS "Wayland support enabled")
-
-  find_package(PkgConfig REQUIRED)
-  pkg_check_modules(WAYLAND REQUIRED wayland-client)
 
   find_program(WAYLAND_SCANNER wayland-scanner REQUIRED)
 
