@@ -91,7 +91,7 @@
     };
 
     struct key_descriptor {
-      key k;
+      window::key k;
       const char* description;
     };
 
@@ -109,7 +109,7 @@
     };
 
     struct button_descriptor {
-      button b;
+      window::button b;
       const char* description;
     };
 

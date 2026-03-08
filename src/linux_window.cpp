@@ -34,6 +34,8 @@ namespace window {
     #endif
     #ifdef window_wl
       wl = {};
+      wl.input        = &input;
+
       wl.display      = nullptr;
       wl.compositor   = nullptr;
       wl.surface      = nullptr;
@@ -119,7 +121,7 @@ namespace window {
       return x11.isopen;
     #endif
     #if defined(window_wl) && !defined(window_x11)
-      return wl.is_open;
+      return wl.isopen;
     #endif
   }
 

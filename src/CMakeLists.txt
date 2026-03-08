@@ -15,7 +15,7 @@ endif()
 
 if (window_x11)
   target_compile_definitions(window PUBLIC window_x11)
-  target_sources(window PRIVATE x11_window.cpp x11_input.cpp)
+  target_sources(window PRIVATE x11_window.cpp)
   target_link_libraries(window PUBLIC X11 GL)
 endif()
 
@@ -26,7 +26,6 @@ if (window_wl)
 
   target_sources(window PRIVATE
     wl_window.cpp
-    wl_input.cpp
     ${WL_GENERATED_SOURCES}
   )
 
@@ -35,7 +34,7 @@ if (window_wl)
   )
 
   target_link_libraries(window
-    PUBLIC wayland-client EGL wayland-egl GLESv2
+    PUBLIC wayland-client EGL wayland-egl GLESv2 xkbcommon
   )
 
   target_compile_definitions(window PUBLIC window_wl)

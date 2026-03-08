@@ -2,6 +2,8 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <unistd.h>
 
 namespace window::wl {
   const char* eglGetErrorString(EGLint error) {
@@ -50,11 +52,13 @@ namespace window::wl {
   };
 
   static void registry_handler(void* data, wl_registry* registry,
-                                uint32_t id, const char* interface, uint32_t version) {
+                               uint32_t id, const char* interface, uint32_t version) {
     if (data != nullptr) {
       window_wl_data* win_data = static_cast<window_wl_data*>(data);
       if (strcmp(interface, "wl_compositor") == 0) {
         win_data->compositor = static_cast<wl_compositor*>(wl_registry_bind(registry, id, &wl_compositor_interface, 4));
+      } else if (strcmp(interface, "wl_seat") == 0) {
+        win_data->seat = static_cast<wl_seat*>(wl_registry_bind(registry, id, &wl_seat_interface, 5));
       } else if (strcmp(interface, "xdg_wm_base") == 0) {
         win_data->xwm_base = static_cast<xdg_wm_base*>(wl_registry_bind(registry, id, &xdg_wm_base_interface, 1));
         xdg_wm_base_add_listener(win_data->xwm_base, &wm_base_listener, NULL);
@@ -95,6 +99,155 @@ namespace window::wl {
   static const xdg_toplevel_listener toplevel_listener = {
     .configure = xdg_toplevel_configure,
     .close = xdg_toplevel_close
+  };
+
+  static void keyboard_keymap(void* data, wl_keyboard* keyboard,
+                              uint32_t format, int fd, uint32_t size) {
+    window_wl_data* win = static_cast<window_wl_data*>(data);
+
+    if (format != WL_KEYBOARD_KEYMAP_FORMAT_XKB_V1) {
+      close(fd);
+      return;
+    }
+
+    char* map = (char*)mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+
+    win->kb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+
+    win->kb_keymap = xkb_keymap_new_from_string(
+      win->kb_ctx,
+      map,
+      XKB_KEYMAP_FORMAT_TEXT_V1,
+      XKB_KEYMAP_COMPILE_NO_FLAGS);
+
+    munmap(map, size);
+    close(fd);
+
+    win->kb_state = xkb_state_new(win->kb_keymap);
+  }
+
+  static void keyboard_enter(void* data, wl_keyboard* keyboard, uint32_t serial, wl_surface* surface, wl_array* keys) {
+  }
+
+  static void keyboard_leave(void* data, wl_keyboard* keyboard, uint32_t serial, wl_surface* surface) {
+  }
+
+  static void keyboard_key(void* data, wl_keyboard* keyboard, uint32_t serial,
+                           uint32_t time, uint32_t key, uint32_t state) {
+    window_wl_data* win = static_cast<window_wl_data*>(data);
+
+    xkb_keysym_t sym = xkb_state_key_get_one_sym(win->kb_state, key + 8);
+
+    key_descriptor desc = os_to_key(sym);
+
+    if (win->input && win->input->key_event) {
+      win->input->key_event(
+        state == WL_KEYBOARD_KEY_STATE_PRESSED,
+        desc
+      );
+    }
+  }
+
+  static void keyboard_modifiers(void* data, wl_keyboard* keyboard, uint32_t serial,
+                                 uint32_t mods_depressed, uint32_t mods_latched,
+                                 uint32_t mods_locked, uint32_t group) {
+    window_wl_data* win = static_cast<window_wl_data*>(data);
+
+    xkb_state_update_mask(
+      win->kb_state,
+      mods_depressed,
+      mods_latched,
+      mods_locked,
+      0, 0,
+      group
+    );
+  }
+
+  static void keyboard_repeat_info(void* data, wl_keyboard* keyboard, int32_t rate, int32_t delay) {
+  }
+
+  static const wl_keyboard_listener keyboard_listener = {
+    .keymap = keyboard_keymap,
+    .enter = keyboard_enter,
+    .leave = keyboard_leave,
+    .key = keyboard_key,
+    .modifiers = keyboard_modifiers,
+    .repeat_info = keyboard_repeat_info
+  };
+
+  static void pointer_enter(void* data, wl_pointer* pointer, uint32_t serial,
+                            wl_surface* surface, wl_fixed_t sx, wl_fixed_t sy) {
+  }
+
+  static void pointer_leave(void* data, wl_pointer* pointer,
+                            uint32_t serial, wl_surface* surface) {
+  }
+
+  static void pointer_motion(void* data, wl_pointer* pointer, uint32_t time,
+                             wl_fixed_t sx, wl_fixed_t sy) {
+    window_wl_data* win = static_cast<window_wl_data*>(data);
+
+    if (win->input && win->input->mouse_event) {
+      win->input->mouse_event(
+        wl_fixed_to_int(sx),
+        wl_fixed_to_int(sy)
+      );
+    }
+  }
+
+  static void pointer_button(void* data, wl_pointer* pointer, uint32_t serial,
+                             uint32_t time, uint32_t button, uint32_t state) {
+    window_wl_data* win = static_cast<window_wl_data*>(data);
+
+    button_descriptor desc = os_to_button(button);
+
+    if (win->input && win->input->button_event) {
+      win->input->button_event(
+        state == WL_POINTER_BUTTON_STATE_PRESSED,
+        desc
+      );
+    }
+  }
+
+  static void pointer_axis(void* data, wl_pointer* pointer, uint32_t time,
+                           uint32_t axis, wl_fixed_t value) {
+    window_wl_data* win = static_cast<window_wl_data*>(data);
+
+    int scroll = wl_fixed_to_int(value);
+
+    if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
+      if (win->input->vscroll_event)
+        win->input->vscroll_event(scroll);
+    }
+
+    if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
+      if (win->input->hscroll_event)
+        win->input->hscroll_event(scroll);
+    }
+  }
+
+  static void pointer_frame(void* data, wl_pointer* pointer) {
+  }
+
+  static void pointer_axis_source(void* data, wl_pointer* pointer, uint32_t source) {
+  }
+
+  static void pointer_axis_stop(void* data, wl_pointer* pointer, uint32_t time, uint32_t axis) {
+  }
+
+  static void pointer_axis_discrete(void* data, wl_pointer* pointer, uint32_t axis, int32_t discrete) {
+  }
+
+  static const wl_pointer_listener pointer_listener = {
+    .enter = pointer_enter,
+    .leave = pointer_leave,
+    .motion = pointer_motion,
+    .button = pointer_button,
+    .axis = pointer_axis,
+    .frame = pointer_frame,
+    .axis_source = pointer_axis_source,
+    .axis_stop = pointer_axis_stop,
+    .axis_discrete = pointer_axis_discrete
   };
 
   ::window::result create_window(window_wl_data& data, int w, int h, const char* title) noexcept {
@@ -140,6 +293,14 @@ namespace window::wl {
       return ::window::CREATIONFAILED;
     }
     xdg_toplevel_add_listener(data.xtoplevel, &toplevel_listener, &data);
+
+    // add keyboard and mouse
+    if (data.seat) {
+      data.keyboard = wl_seat_get_keyboard(data.seat);
+      wl_keyboard_add_listener(data.keyboard, &keyboard_listener, &data);
+      data.pointer = wl_seat_get_pointer(data.seat);
+      wl_pointer_add_listener(data.pointer, &pointer_listener, &data);
+    }
 
     // set dimensions, frame and title of the window :)
     if (data.decoration_manager) {
@@ -330,6 +491,30 @@ namespace window::wl {
     if (data.decoration_manager != nullptr) {
       zxdg_decoration_manager_v1_destroy(data.decoration_manager);
       data.decoration_manager = nullptr;
+    }
+    if (data.kb_state != nullptr) {
+      xkb_state_unref(data.kb_state);
+      data.kb_state = nullptr;
+    }
+    if (data.kb_keymap != nullptr) {
+      xkb_keymap_unref(data.kb_keymap);
+      data.kb_keymap = nullptr;
+    }
+    if (data.kb_ctx != nullptr) {
+      xkb_context_unref(data.kb_ctx);
+      data.kb_ctx = nullptr;
+    }
+    if (data.keyboard != nullptr) {
+      wl_keyboard_destroy(data.keyboard);
+      data.keyboard = nullptr;
+    }
+    if (data.pointer != nullptr) {
+      wl_pointer_destroy(data.pointer);
+      data.pointer = nullptr;
+    }
+    if (data.seat != nullptr) {
+      wl_seat_destroy(data.seat);
+      data.seat = nullptr;
     }
     if (data.egl_display != nullptr) {
       eglDestroySurface(data.egl_display, data.egl_surface);

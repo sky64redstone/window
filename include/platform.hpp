@@ -43,19 +43,29 @@
       #include <wayland-egl.h>
       #include <EGL/egl.h>
       #include <GLES2/gl2.h>
+      #include <xkbcommon/xkbcommon.h>
       
       #include "xdg-shell-client-protocol.h"
       #include "xdg-decoration-client-protocol.h"
 
       struct window_wl_data {
+        ::window::input_data* input;
+
         wl_display*    display;
         wl_compositor* compositor;
         wl_surface*    surface;
         wl_registry*   registry;
+        wl_seat*       seat;
+        wl_keyboard*   keyboard;
+        wl_pointer*    pointer;
 
         xdg_wm_base*   xwm_base;
         xdg_surface*   xsurface;
         xdg_toplevel*  xtoplevel;
+
+        xkb_context*   kb_ctx;
+        xkb_keymap*    kb_keymap;
+        xkb_state*     kb_state;
 
         zxdg_decoration_manager_v1* decoration_manager;
         zxdg_toplevel_decoration_v1* decoration;
