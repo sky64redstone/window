@@ -1,6 +1,9 @@
 #include "include/x11.hpp"
+
 #include <sys/time.h> // for gettimeofday (for double click events)
 #include <stdio.h> // printf for x11 error handler
+
+#include "include/log.hpp"
 
 namespace window {
 
@@ -23,9 +26,7 @@ namespace window {
       error_code = error->error_code;
       char text[512];
       XGetErrorText(display, error_code, text, sizeof(text));
-      fprintf(stderr,
-        "[window] x11: Request Code: %i; Error Code: %i\n"
-        "[window] x11: %s\n",
+      ::window::log_error(::window::LOG_X11, "Request Code: %i; Error Code: %i, %s",
         error->request_code, error_code, text
       );
       return 0;
@@ -41,12 +42,12 @@ namespace window {
       data.display = XOpenDisplay(nullptr);
 
       if (data.display == nullptr) {
-        fprintf(stderr, "[window] x11: Couldn't open the connection to the display server!!!\n");
+        ::window::log_error(::window::LOG_X11, "Couldn't open the connection to the display server");
         return window::CONNECTIONFAILED;
       }
 
       if (glXQueryExtension(data.display, nullptr, nullptr) != True) {
-        fprintf(stderr, "[window] x11: GLX isn't supported on this device!!!\n");
+        ::window::log_error(::window::LOG_X11, "GLX isn't supported on this device");
         return window::UNSUPPORTED;
       }
 
@@ -287,7 +288,7 @@ namespace window {
     ::window::result swap_interval(const window_x11_data& data, int interval) noexcept {
       load_swap_interval();
       if (glXSwapIntervalEXT == nullptr) {
-        fprintf(stderr, "[window] x11: glXSwapIntervalEXT not supported!!!\n");
+        ::window::log_error(::window::LOG_X11, "glXSwapIntervalEXT not supported");
         return window::UNSUPPORTED;
       }
       glXSwapIntervalEXT(data.display, data.win, interval);

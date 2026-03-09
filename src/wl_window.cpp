@@ -6,6 +6,8 @@
 #include <unistd.h>   // close
 #include <sys/time.h> // for gettimeofday (for double click events)
 
+#include "include/log.hpp"
+
 namespace window::wl {
   const char* eglGetErrorString(EGLint error) {
     switch (error) {
@@ -311,7 +313,8 @@ namespace window::wl {
   ::window::result create_window(window_wl_data& data, int w, int h, const char* title) noexcept {
     data.display = wl_display_connect(NULL);
     if (data.display == nullptr) {
-      fprintf(stderr, "[window] wayland: Failed to connect to Wayland display\n");
+      ::window::log_error(window::LOG_WAYLAND, "Failed to connect to wayland display");
+      destroy(data);
       return ::window::CONNECTIONFAILED;
     }
 
@@ -321,33 +324,37 @@ namespace window::wl {
     wl_display_roundtrip(data.display); // Needed to receive xdg_wm_base events
 
     if (data.compositor == nullptr) {
-      fprintf(stderr, "[window] wayland: Missing required Wayland interfaces (compositor)\n");
+      ::window::log_error(window::LOG_WAYLAND, "Missing required Wayland interfaces (compositor)");
+      destroy(data);
       return ::window::UNSUPPORTED;
     }
 
     if (data.xwm_base == nullptr) {
-      fprintf(stderr, "[window] wayland: Missing required Wayland interfaces"
-                      "(xdg window manager base)\n");
+      ::window::log_error(window::LOG_WAYLAND, "Missing required Wayland interfaces (xdg window manager base)");
+      destroy(data);
       return ::window::UNSUPPORTED;
     }
 
     data.surface = wl_compositor_create_surface(data.compositor);
     if (data.surface == nullptr) {
-      fprintf(stderr, "[window] wayland: Failed to create surface\n");
+      ::window::log_error(window::LOG_WAYLAND, "Failed to create surface");
+      destroy(data);
       return ::window::CREATIONFAILED;
     }
       
     // Create xdg-surface and toplevel
     data.xsurface = xdg_wm_base_get_xdg_surface(data.xwm_base, data.surface);
     if (data.xsurface == nullptr) {
-      fprintf(stderr, "[window] wayland: Failed to create xdg surface\n");
+      ::window::log_error(window::LOG_WAYLAND, "Failed to create xdg surface");
+      destroy(data);
       return ::window::CREATIONFAILED;
     }
     xdg_surface_add_listener(data.xsurface, &xsurface_listener, &data);
 
     data.xtoplevel = xdg_surface_get_toplevel(data.xsurface);
     if (data.xtoplevel == nullptr) {
-      fprintf(stderr, "[window] wayland: Failed to get xdg toplevel\n");
+      ::window::log_error(window::LOG_WAYLAND, "Failed to get xdg toplevel");
+      destroy(data);
       return ::window::CREATIONFAILED;
     }
     xdg_toplevel_add_listener(data.xtoplevel, &toplevel_listener, &data);
@@ -358,6 +365,10 @@ namespace window::wl {
       wl_keyboard_add_listener(data.keyboard, &keyboard_listener, &data);
       data.pointer = wl_seat_get_pointer(data.seat);
       wl_pointer_add_listener(data.pointer, &pointer_listener, &data);
+    } else {
+      ::window::log_error(window::LOG_WAYLAND, "Failed to get wl seat");
+      destroy(data);
+      return ::window::CREATIONFAILED;
     }
 
     // set dimensions, frame and title of the window :)
@@ -367,10 +378,20 @@ namespace window::wl {
         data.xtoplevel
       );
 
+      if (data.decoration == nullptr) {
+        ::window::log_error(window::LOG_WAYLAND, "Failed to create decoration");
+        // exit here because decoration manager is supported
+        destroy(data);
+        return ::window::CREATIONFAILED;
+      }
+
       zxdg_toplevel_decoration_v1_set_mode(
         data.decoration,
         ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE
       );
+    } else {
+      ::window::log_warning(window::LOG_WAYLAND, "Failed to get decoration manager");
+      // don't exit -> wm like mutter don't support decoration manager
     }
     xdg_surface_set_window_geometry(data.xsurface, 0, 0, w, h);
     xdg_toplevel_set_title(data.xtoplevel, title);
@@ -417,14 +438,13 @@ namespace window::wl {
   ::window::result make_opengl_context(window_wl_data& data) noexcept {
     data.egl_display = eglGetDisplay((EGLNativeDisplayType)data.display);
     if (data.egl_display == EGL_NO_DISPLAY) {
-      fprintf(stderr, "[window] wayland: Failed to connect to egl display server!!!\n");
+      ::window::log_error(window::LOG_WAYLAND, "Failed to connect to egl display server");
       return ::window::CONNECTIONFAILED;
     }
 
     if (eglInitialize(data.egl_display, nullptr, nullptr) == false) {
       EGLint error = eglGetError();
-      fprintf(stderr, 
-        "[window] wayland: Failed to Inizialize EGL (code:0x%x=%s)\n",
+      ::window::log_error(window::LOG_WAYLAND, "Failed to Inizialize EGL (code:0x%x=%s)",
         error, eglGetErrorString(error)
       );
       return ::window::UNKNOWNFAILURE;
@@ -432,8 +452,7 @@ namespace window::wl {
 
     if (eglBindAPI(EGL_OPENGL_API) == EGL_FALSE) {
       EGLint error = eglGetError();
-      fprintf(stderr,
-        "[window] wayland: Failed to bind OpenGL API (code 0x%x=%s)\n",
+      ::window::log_error(window::LOG_WAYLAND, "Failed to bind OpenGL API (code:0x%x=%s)",
         error, eglGetErrorString(error)
       );
       return ::window::UNKNOWNFAILURE;
@@ -453,17 +472,14 @@ namespace window::wl {
     EGLint configs = 0;
     if (eglChooseConfig(data.egl_display, attr, &data.egl_config, 1, &configs) == false) {
       EGLint error = eglGetError();
-      fprintf(stderr, 
-        "[window] wayland: Failed to choose EGL Config (code: 0x%x=%s)\n", 
+      ::window::log_error(window::LOG_WAYLAND, "Failed to choose EGL Config (code:0x%x=%s)",
         error, eglGetErrorString(error)
       );
       return ::window::UNKNOWNFAILURE;
     }
 
     if (configs == 0) {
-      fprintf(stderr, 
-        "[window] wayland: Failed to choose EGL Config (no valid available)\n"
-      );
+      ::window::log_error(window::LOG_WAYLAND, "Failed to choose EGL Config (no valid available)");
       return ::window::UNKNOWNFAILURE;
     }
 
@@ -478,8 +494,7 @@ namespace window::wl {
 
     if (data.egl_context == EGL_NO_CONTEXT) {
       EGLint error = eglGetError();
-      fprintf(stderr,
-        "[window] wayland: Failed to create EGL Context (code 0x%x=%s)\n",
+      ::window::log_error(window::LOG_WAYLAND, "Failed to create EGL Context (code 0x%x=%s)",
         error, eglGetErrorString(error)
       );
       return ::window::CREATIONFAILED;
@@ -488,8 +503,7 @@ namespace window::wl {
     data.egl_window = wl_egl_window_create(data.surface, data.width, data.height);
     if (data.egl_window == nullptr) {
       EGLint error = eglGetError();
-      fprintf(stderr,
-        "[window] wayland: Failed to create EGL Window (code 0x%x=%s)\n",
+      ::window::log_error(window::LOG_WAYLAND, "Failed to create EGL Window (code 0x%x=%s)",
         error, eglGetErrorString(error)
       );
       return ::window::CREATIONFAILED;
@@ -498,8 +512,7 @@ namespace window::wl {
     data.egl_surface = eglCreateWindowSurface(data.egl_display, data.egl_config, data.egl_window, NULL);
     if (data.egl_surface == EGL_NO_SURFACE) {
       EGLint error = eglGetError();
-      fprintf(stderr,
-        "[window] wayland: Failed to create EGL Surface (code 0x%x=%s)\n",
+      ::window::log_error(window::LOG_WAYLAND, "Failed to create EGL Surface (code 0x%x=%s)",
         error, eglGetErrorString(error)
       );
       return ::window::CREATIONFAILED;
@@ -507,8 +520,7 @@ namespace window::wl {
       
     if (eglMakeCurrent(data.egl_display, data.egl_surface, data.egl_surface, data.egl_context) == false) {
       EGLint error = eglGetError();
-      fprintf(stderr,
-        "[window] wayland: Failed to attach an EGL rendering context to EGL surfaces (code 0x%x=%s)\n",
+      ::window::log_error(window::LOG_WAYLAND, "Failed to attach an EGL rendering context to EGL surfaces (code 0x%x=%s)",
         error, eglGetErrorString(error)
       );
       return ::window::CREATIONFAILED;
@@ -520,8 +532,7 @@ namespace window::wl {
   ::window::result swap_buffers(const window_wl_data& data) noexcept {
     if (eglSwapBuffers(data.egl_display, data.egl_surface) == false) {
       EGLint error = eglGetError();
-      fprintf(stderr,
-        "[window] wayland: Failed to swap buffers (code 0x%x=%s)\n",
+      ::window::log_error(window::LOG_WAYLAND, "Failed to swap buffers (code 0x%x=%s)",
         error, eglGetErrorString(error)
       );
       return ::window::BADWINDOW;
@@ -532,8 +543,7 @@ namespace window::wl {
   ::window::result swap_interval(const window_wl_data& data, int interval) noexcept {
     if (eglSwapInterval(data.egl_display, interval) == false) {
       EGLint error = eglGetError();
-      fprintf(stderr,
-        "[window] wayland: Failed to set swap interval (code 0x%x=%s)\n",
+      ::window::log_error(window::LOG_WAYLAND, "Failed to set swap interval (code 0x%x=%s)",
         error, eglGetErrorString(error)
       );
       return ::window::BADWINDOW;
@@ -542,68 +552,65 @@ namespace window::wl {
   }
 
   void destroy(window_wl_data& data) noexcept {
-    if (data.decoration != nullptr) {
+    if (data.decoration) {
       zxdg_toplevel_decoration_v1_destroy(data.decoration);
-      data.decoration = nullptr;
     }
-    if (data.decoration_manager != nullptr) {
+    if (data.decoration_manager) {
       zxdg_decoration_manager_v1_destroy(data.decoration_manager);
-      data.decoration_manager = nullptr;
     }
-    if (data.kb_state != nullptr) {
+    if (data.kb_state) {
       xkb_state_unref(data.kb_state);
-      data.kb_state = nullptr;
     }
-    if (data.kb_keymap != nullptr) {
+    if (data.kb_keymap) {
       xkb_keymap_unref(data.kb_keymap);
-      data.kb_keymap = nullptr;
     }
-    if (data.kb_ctx != nullptr) {
+    if (data.kb_ctx) {
       xkb_context_unref(data.kb_ctx);
-      data.kb_ctx = nullptr;
     }
-    if (data.keyboard != nullptr) {
+    if (data.keyboard) {
       wl_keyboard_destroy(data.keyboard);
-      data.keyboard = nullptr;
     }
-    if (data.pointer != nullptr) {
+    if (data.pointer) {
       wl_pointer_destroy(data.pointer);
-      data.pointer = nullptr;
     }
-    if (data.seat != nullptr) {
+    if (data.seat) {
       wl_seat_destroy(data.seat);
-      data.seat = nullptr;
     }
-    if (data.egl_display != nullptr) {
+    if (data.egl_surface) {
       eglDestroySurface(data.egl_display, data.egl_surface);
+    }
+    if (data.egl_window) {
       wl_egl_window_destroy(data.egl_window);
+    }
+    if (data.egl_context) {
       eglDestroyContext(data.egl_display, data.egl_context);
+    }
+    if (data.egl_display) {
       eglTerminate(data.egl_display);
-
-      data.egl_display = nullptr;
-      data.egl_window  = nullptr;
-      data.egl_config  = nullptr;
-      data.egl_context = nullptr;
-      data.egl_surface = nullptr;
+    }
+    if (data.xwm_base) {
+      xdg_wm_base_destroy(data.xwm_base);
+    }
+    if (data.xtoplevel) {
+      xdg_toplevel_destroy(data.xtoplevel);
+    }
+    if (data.xsurface) {
+      xdg_surface_destroy(data.xsurface);
+    }
+    if (data.surface) {
+      wl_surface_destroy(data.surface);
+    }
+    if (data.registry) {
+      wl_registry_destroy(data.registry);
     }
     if (data.display) {
-      xdg_wm_base_destroy(data.xwm_base);
-      xdg_toplevel_destroy(data.xtoplevel);
-      xdg_surface_destroy(data.xsurface);
-
-      wl_surface_destroy(data.surface);
-      wl_registry_destroy(data.registry);
       wl_display_disconnect(data.display);
-
-      data.display      = nullptr;
-      data.compositor   = nullptr;
-      data.surface      = nullptr;
-      data.registry     = nullptr;
-
-      data.xwm_base     = nullptr;
-      data.xsurface     = nullptr;
-      data.xtoplevel    = nullptr;
     }
+    ::window::input_data* input = data.input;
+    memset(&data, 0, sizeof(data));
+    data.input = input;
+    // ensure window closed
     data.isopen = false;
+    data.display = nullptr;
   }
 }
