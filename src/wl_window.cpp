@@ -55,14 +55,20 @@ namespace window::wl {
                                uint32_t id, const char* interface, uint32_t version) {
     if (data != nullptr) {
       window_wl_data* win_data = static_cast<window_wl_data*>(data);
-      if (strcmp(interface, "wl_compositor") == 0) {
-        win_data->compositor = static_cast<wl_compositor*>(wl_registry_bind(registry, id, &wl_compositor_interface, 4));
-      } else if (strcmp(interface, "wl_seat") == 0) {
-        win_data->seat = static_cast<wl_seat*>(wl_registry_bind(registry, id, &wl_seat_interface, 5));
-      } else if (strcmp(interface, "xdg_wm_base") == 0) {
-        win_data->xwm_base = static_cast<xdg_wm_base*>(wl_registry_bind(registry, id, &xdg_wm_base_interface, 1));
+      if (strcmp(interface, wl_compositor_interface.name) == 0) {
+        win_data->compositor = static_cast<wl_compositor*>(
+          wl_registry_bind(registry, id, &wl_compositor_interface, 4)
+        );
+      } else if (strcmp(interface, wl_seat_interface.name) == 0) {
+        win_data->seat = static_cast<wl_seat*>(
+          wl_registry_bind(registry, id, &wl_seat_interface, 5)
+        );
+      } else if (strcmp(interface, xdg_wm_base_interface.name) == 0) {
+        win_data->xwm_base = static_cast<xdg_wm_base*>(
+          wl_registry_bind(registry, id, &xdg_wm_base_interface, 1)
+        );
         xdg_wm_base_add_listener(win_data->xwm_base, &wm_base_listener, NULL);
-      } else if (strcmp(interface, "zxdg_decoration_manager_v1") == 0) {
+      } else if (strcmp(interface, zxdg_decoration_manager_v1_interface.name) == 0) {
         win_data->decoration_manager = static_cast<zxdg_decoration_manager_v1*>(
           wl_registry_bind(registry, id, &zxdg_decoration_manager_v1_interface, 1)
         );
@@ -79,7 +85,15 @@ namespace window::wl {
 
   static void xdg_surface_configure(void* data, xdg_surface* surface, uint32_t serial) {
     window_wl_data* win = static_cast<window_wl_data*>(data);
+
     xdg_surface_ack_configure(surface, serial);
+
+    xdg_surface_set_window_geometry(
+      win->xsurface,
+      0, 0,
+      win->width,
+      win->height);
+
     wl_surface_commit(win->surface);
   }
   
@@ -94,6 +108,25 @@ namespace window::wl {
 
   static void xdg_toplevel_configure(void* data, xdg_toplevel* toplevel, 
       int32_t width, int32_t height, wl_array* states) {
+    window_wl_data* win = static_cast<window_wl_data*>(data);
+
+    // Some compositors send 0,0 meaning "pick your own size"
+    if (width <= 0 || height <= 0)
+      return;
+
+    win->width = width;
+    win->height = height;
+
+    // Resize EGL window if it exists
+    if (win->egl_window)
+      wl_egl_window_resize(win->egl_window, width, height, 0, 0);
+
+    if (win->input && win->input->size_event)
+      win->input->size_event(width, height);
+
+    // Update surface geometry in xdg_surface.configure
+    //xdg_surface_set_window_geometry(win->xsurface, 0, 0, width, height);
+    //wl_surface_commit(win->surface);
   }
 
   static const xdg_toplevel_listener toplevel_listener = {
