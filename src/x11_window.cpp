@@ -232,17 +232,16 @@ namespace window {
             // from Microsoft is: 500ms
             // TODO hint for the delta time!
             if (now - last_click <= 500/*ms delta*/) {
-              if (data.input->dblclk_event != nullptr) {
+              if (data.input && data.input->dblclk_event != nullptr) {
                 data.input->dblclk_event(b);
+                // prevent the next click to be a double click
+                last_click = now - 500;
+                break;
               }
               // if we have no double click handler, we just prepend, 
               // that its a normal second mouse button click
-              else if (data.input->button_event != nullptr) {
-                data.input->button_event(true, b);
-                last_click = now;
-              }
-              break;
             }
+            last_click = now;
           }
 
           if (data.input->button_event != nullptr) {

@@ -1,9 +1,10 @@
 #include "include/wayland.hpp"
 
 #include <stdio.h>
-#include <string.h>
-#include <sys/mman.h>
-#include <unistd.h>
+#include <string.h>   // strcmp
+#include <sys/mman.h> // mmap
+#include <unistd.h>   // close
+#include <sys/time.h> // for gettimeofday (for double click events)
 
 namespace window::wl {
   const char* eglGetErrorString(EGLint error) {
@@ -234,6 +235,30 @@ namespace window::wl {
 
     button_descriptor desc = os_to_button(button);
 
+    static unsigned long last_click = (unsigned long)-1;
+
+    timeval t; gettimeofday(&t, NULL);
+    unsigned long now = t.tv_sec * 1000 + t.tv_usec / 1000;
+
+    // Only generate double click events on pressing the button,
+    // not on releasing it
+    if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
+      // The recommended delta time for a double click
+      // from Microsoft is: 500ms
+      // TODO hint for the delta time!
+      if (now - last_click <= 500/*ms delta*/) {
+        if (win->input && win->input->dblclk_event != nullptr) {
+          win->input->dblclk_event(desc);
+          // prevent the next click to be a double click
+          last_click = now - 500;
+          return;
+        }
+        // if we have no double click handler, we just prepend,
+        // that its a normal second mouse button click
+      }
+      last_click = now;
+    }
+
     if (win->input && win->input->button_event) {
       win->input->button_event(
         state == WL_POINTER_BUTTON_STATE_PRESSED,
@@ -246,7 +271,7 @@ namespace window::wl {
                            uint32_t axis, wl_fixed_t value) {
     window_wl_data* win = static_cast<window_wl_data*>(data);
 
-    int scroll = wl_fixed_to_int(value);
+    float scroll = (float)wl_fixed_to_double(value)/15.f;
 
     if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
       if (win->input->vscroll_event)

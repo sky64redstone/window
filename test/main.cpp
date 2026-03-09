@@ -18,15 +18,15 @@ static void dblclk_event(window::button_descriptor& b) noexcept {
 }
 
 static void vscroll_event(float delta) noexcept {
-  printf("Mouse wheel vertical delta: %f\n", delta);
+  printf("Mouse wheel vertical delta: %.2f\n", delta);
 }
 
 static void hscroll_event(float delta) noexcept {
-  printf("Mouse wheel horiziontal delta: %f\n", delta);
+  printf("Mouse wheel horiziontal delta: %.2f\n", delta);
 }
 
 static void mouse_event(int x, int y) noexcept {
-  // we use a threshold to not spam or console full :)
+  // we use a threshold to not spam the console full
   const int threshold = 50;
 
   static int last_x = -threshold;
@@ -40,7 +40,7 @@ static void mouse_event(int x, int y) noexcept {
 }
 
 static void size_event(int w, int h) noexcept {
-  // we use a threshold to not spam or console full :)
+  // we use a threshold to not spam the console full
   const int threshold = 50;
 
   static int last_w = -threshold;
