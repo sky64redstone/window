@@ -1,5 +1,7 @@
 #include "include/window.hpp"
 
+#include <cstring>
+
 #ifdef window_x11
   #include "include/x11.hpp"
 #endif
@@ -20,43 +22,13 @@ namespace window {
     input = {};
     #ifdef window_x11
       x11 = {};
+      memset(&x11, 0, sizeof(x11));
       x11.input    = &input;
-      x11.display  = nullptr;
-      x11.root     = None;
-      x11.win      = None;
-      x11.context  = nullptr;
-      x11.wmDelete = None;
-      x11.isopen   = false;
-      x11.x        = -1;
-      x11.y        = -1;
-      x11.width    = -1;
-      x11.height   = -1;
     #endif
     #ifdef window_wl
       wl = {};
+      memset(&wl, 0, sizeof(wl));
       wl.input        = &input;
-
-      wl.display      = nullptr;
-      wl.compositor   = nullptr;
-      wl.surface      = nullptr;
-      wl.registry     = nullptr;
-
-      wl.xwm_base     = nullptr;
-      wl.xsurface     = nullptr;
-      wl.xtoplevel    = nullptr;
-
-      wl.decoration_manager = nullptr;
-      wl.decoration   = nullptr;
-
-      wl.egl_window   = nullptr;
-      wl.egl_display  = nullptr;
-      wl.egl_config   = nullptr;
-      wl.egl_context  = nullptr;
-      wl.egl_surface  = nullptr;
-
-      wl.isopen       = false;
-      wl.width        = -1;
-      wl.height       = -1;
     #endif
   }
 
