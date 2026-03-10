@@ -5,6 +5,12 @@
   #include "input.hpp"
 
   namespace window {
+    enum backend {
+      WIN32,
+      X11,
+      WAYLAND
+    };
+
     class window_api window {
     public:
       #if defined(window_x11)
@@ -45,6 +51,8 @@
       scroll_event_callback set_vscroll_event(scroll_event_callback func) noexcept;
       scroll_event_callback set_hscroll_event(scroll_event_callback func) noexcept;
       size_event_callback   set_size_event(size_event_callback      func) noexcept;
+
+      backend get_backend() const noexcept;
 
       void destroy() noexcept;
     };

@@ -61,6 +61,7 @@ int main() {
   // creating the opengl window
   win.create(300, 200, "TEST! :)");
   win.make_opengl_context();
+  printf("Backend: %s\n", (win.get_backend() == window::WAYLAND ? "wayland" : (win.get_backend() == window::X11 ? "X11" : "Win32")));
   printf("OpenGL: %s\n", glGetString(GL_VERSION));
 
   // setting event callbacks up

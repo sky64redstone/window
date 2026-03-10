@@ -195,6 +195,20 @@ namespace window {
     return temp;
   }
 
+  backend window::get_backend() const noexcept {
+    #if defined(window_wl) && defined(window_x11)
+      if (is_valid_wl(wl)) {
+        return ::window::backend::WAYLAND;
+      }
+    #endif
+    #ifdef window_x11
+    return ::window::backend::X11;
+    #endif
+    #if defined(window_wl) && !defined(window_x11)
+      return ::window::backend::WAYLAND;
+    #endif
+  }
+
   void window::destroy() noexcept {
     #if defined(window_wl) && defined(window_x11)
       if (is_valid_wl(wl)) {

@@ -384,6 +384,10 @@ namespace window {
     return temp;
   }
 
+  backend window::get_backend() const noexcept {
+    return ::window::backend::WIN32;
+  }
+
   void window::destroy() noexcept {
     if (win32.rc != nullptr) {
       wglDeleteContext(win32.rc);
