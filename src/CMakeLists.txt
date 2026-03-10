@@ -29,10 +29,6 @@ if (window_wl)
     ${WL_GENERATED_SOURCES}
   )
 
-  target_include_directories(window PRIVATE
-    ${CMAKE_BINARY_DIR}
-  )
-
   if (window_no_pkg)
     message(STATUS "PkgConfig disabled")
     target_link_libraries(window
