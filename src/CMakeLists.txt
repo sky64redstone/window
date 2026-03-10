@@ -34,7 +34,7 @@ if (window_wl)
     target_link_libraries(window
       PUBLIC
         wayland-client EGL
-        wayland-egl GLESv2
+        wayland-egl
         xkbcommon
     )
   else()
@@ -42,7 +42,7 @@ if (window_wl)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(DEPS REQUIRED IMPORTED_TARGET
       wayland-client egl
-      wayland-egl glesv2
+      wayland-egl
       xkbcommon
     )
     target_link_libraries(window
