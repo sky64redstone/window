@@ -41,11 +41,11 @@ if (window_wl)
   set(XDG_DECOR_XML
       ${WAYLAND_PROTOCOL_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml)
 
-  set(XDG_SHELL_SOURCE ${CMAKE_SOURCE_DIR}/src/xdg-shell-protocol.c)
-  set(XDG_SHELL_HEADER ${CMAKE_SOURCE_DIR}/include/xdg-shell-client-protocol.h)
+  set(XDG_SHELL_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/xdg-shell-protocol.c)
+  set(XDG_SHELL_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/xdg-shell-client-protocol.h)
 
-  set(XDG_DECOR_SOURCE ${CMAKE_SOURCE_DIR}/src/xdg-decoration-protocol.c)
-  set(XDG_DECOR_HEADER ${CMAKE_SOURCE_DIR}/include/xdg-decoration-client-protocol.h)
+  set(XDG_DECOR_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/xdg-decoration-protocol.c)
+  set(XDG_DECOR_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/xdg-decoration-client-protocol.h)
 
   add_custom_command(
       OUTPUT ${XDG_SHELL_SOURCE} ${XDG_SHELL_HEADER}
