@@ -44,6 +44,7 @@ Currently supported platforms:
 
 To build **libwindow**, you need a C++ compiler, CMake, and a build tool.
 On Linux you will also need development libraries depending on whether you use **X11** or **Wayland**.
+Alternatively, you could install the necessary libraries for both window servers, and this library would automatically select the appropriate server at runtime.
 
 * A C/C++ compiler (e.g. GCC or Clang)
 * CMake
@@ -87,7 +88,7 @@ sudo apt install libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-d
 sudo apt install libwayland-dev wayland-protocols libxkbcommon-dev
 ```
 
-You only need the packages for the window system you intend to use.
+You only need the packages for the window system you intend to support.
 
 ---
 
@@ -111,6 +112,8 @@ sudo pacman -S libx11 libxrandr libxinerama libxcursor libxi
 sudo pacman -S wayland wayland-protocols libxkbcommon
 ```
 
+You only need the packages for the window system you intend to support.
+
 ---
 
 ## Installation
@@ -125,6 +128,7 @@ cd window
 ```
 
 Build the library with the following commands
+> Windows users: after running `cmake ..` you can open the project in Visual Studio, since CMake doesn't create Makefiles on Windows
 
 ```bash
 mkdir build
