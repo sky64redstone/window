@@ -1,8 +1,16 @@
 #ifndef WINDOW_HPP
   #define WINDOW_HPP
 
-  #include "platform.hpp"
   #include "input.hpp"
+  #include "platform.hpp"
+
+  #if defined(window_x11)
+    #include "x11.hpp"
+  #endif
+
+  #if defined(window_wl)
+    #include "wayland.hpp"
+  #endif
 
   namespace window {
     enum backend {

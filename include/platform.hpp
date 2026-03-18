@@ -1,5 +1,5 @@
-#ifndef INCLUDES_HPP
-  #define INCLUDES_HPP
+#ifndef PLATFORM_HPP
+  #define PLATFORM_HPP
 
   #if defined(__linux__)
     #define window_os_linux
@@ -13,73 +13,6 @@
 
   #if defined(window_os_linux)
     #define window_api __attribute__((visibility("default")))
-
-    // include X11 stuff if needed
-    #if defined(window_x11)
-      #include <X11/X.h>
-      #include <X11/Xlib.h>
-      #include <X11/Xutil.h>
-      // opengl integration
-      #include <GL/glx.h>
-      // x11 data struct
-      struct window_x11_data {
-        ::window::input_data* input;
-        Display*   display;
-        Window     root;
-        Window     win;
-        GLXContext context;
-        Atom       wmDelete;
-        bool       isopen;
-        int        x;
-        int        y;
-        int        width;
-        int        height;
-      };
-    #endif
-
-    // include wayland stuff if needed
-    #if defined(window_wl)
-      #include <wayland-client.h>
-      #include <wayland-egl.h>
-      #include <EGL/egl.h>
-      #include <xkbcommon/xkbcommon.h>
-      
-      #include "xdg-shell-client-protocol.h"
-      #include "xdg-decoration-client-protocol.h"
-
-      struct window_wl_data {
-        ::window::input_data* input;
-
-        wl_display*    display;
-        wl_compositor* compositor;
-        wl_surface*    surface;
-        wl_registry*   registry;
-        wl_seat*       seat;
-        wl_keyboard*   keyboard;
-        wl_pointer*    pointer;
-
-        xdg_wm_base*   xwm_base;
-        xdg_surface*   xsurface;
-        xdg_toplevel*  xtoplevel;
-
-        xkb_context*   kb_ctx;
-        xkb_keymap*    kb_keymap;
-        xkb_state*     kb_state;
-
-        zxdg_decoration_manager_v1* decoration_manager;
-        zxdg_toplevel_decoration_v1* decoration;
-
-        wl_egl_window* egl_window;
-        EGLDisplay     egl_display;
-        EGLConfig      egl_config;
-        EGLContext     egl_context;
-        EGLSurface     egl_surface;
-
-        bool           isopen;
-        int            width;
-        int            height;
-      };
-    #endif
   #elif defined(window_os_win32)
     #ifdef window_build
       #define window_api __declspec(dllexport)

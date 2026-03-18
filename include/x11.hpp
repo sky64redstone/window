@@ -1,6 +1,28 @@
-#include "platform.hpp"
+#if defined(window_x11) && !defined(X11_HPP)
+  #define X11_HPP
 
-#ifdef window_x11
+  #include <X11/X.h>
+  #include <X11/Xlib.h>
+  #include <X11/Xutil.h>
+  // opengl integration
+  #include <GL/glx.h>
+
+  #include "platform.hpp"
+
+  // x11 data struct
+  struct window_x11_data {
+    ::window::input_data* input;
+    Display*   display;
+    Window     root;
+    Window     win;
+    GLXContext context;
+    Atom       wmDelete;
+    bool       isopen;
+    int        x;
+    int        y;
+    int        width;
+    int        height;
+  };
 
   namespace window::x11 {
     ::window::result create_window(window_x11_data& data, int w, int h, const char* title) noexcept;

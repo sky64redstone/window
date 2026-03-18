@@ -1,11 +1,13 @@
 #include "include/linux_input.hpp"
 
 #ifdef window_x11
+  #include "include/x11.hpp"
   #include <X11/keysymdef.h>
 #endif
 
 #ifdef window_wl
   #if !defined(window_x11)
+    #include "include/wayland.hpp"
     #include <xkbcommon/xkbcommon-keysyms.h>
   #endif
 #endif
