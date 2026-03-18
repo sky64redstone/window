@@ -4,7 +4,7 @@
 #include <string.h>   // strcmp
 #include <sys/mman.h> // mmap
 #include <unistd.h>   // close
-#include <sys/time.h> // for gettimeofday (for double click events)
+#include <time.h>     // for clock_gettime (for dbl clk events)
 
 #include "include/log.hpp"
 
@@ -239,8 +239,8 @@ namespace window::wl {
 
     static unsigned long last_click = (unsigned long)-1;
 
-    timeval t; gettimeofday(&t, NULL);
-    unsigned long now = t.tv_sec * 1000 + t.tv_usec / 1000;
+    timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
+    unsigned long now = t.tv_sec * 1000 + t.tv_nsec / 1000000;
 
     // Only generate double click events on pressing the button,
     // not on releasing it

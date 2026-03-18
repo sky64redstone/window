@@ -1,7 +1,7 @@
 #include "include/x11.hpp"
 
-#include <sys/time.h> // for gettimeofday (for double click events)
 #include <stdio.h> // printf for x11 error handler
+#include <time.h>  // for clock_gettime (for dbl clk events)
 
 #include "include/log.hpp"
 
@@ -223,8 +223,8 @@ namespace window {
 
           button_descriptor b = os_to_button(event.xbutton.button);
 
-          timeval t; gettimeofday(&t, NULL);
-          unsigned long now = t.tv_sec * 1000 + t.tv_usec / 1000;
+          timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
+          unsigned long now = t.tv_sec * 1000 + t.tv_nsec / 1000000;
           
           // Only generate double click events on pressing the button,
           // not on releasing it
