@@ -53,7 +53,7 @@ namespace window {
         data->width  = LOWORD(l);
         data->height = HIWORD(l);
 
-        if (data->input->size_event != nullptr) {
+        if (data->input && data->input->size_event) {
           data->input->size_event(data->width, data->height);
         }
 
@@ -69,22 +69,21 @@ namespace window {
       }
       case WM_KEYDOWN:
       case WM_KEYUP: {
-        key_descriptor descriptor = ::window::os_to_key(w);
-        data->input->keys[descriptor.k] = input_char(msg == WM_KEYDOWN, l & (1 << 30));
+        if (data->input && data->input->key_event) {
+          key_descriptor descriptor = ::window::os_to_key(w);
 
-        if (data->input->key_event != nullptr)
           data->input->key_event(msg == WM_KEYDOWN, descriptor);
+        }
 
         return 0;
       }
       case WM_SYSKEYDOWN:
       case WM_SYSKEYUP: {
-        key_descriptor descriptor = ::window::os_to_key(w);
-        data->input->keys[descriptor.k] = input_char(msg == WM_SYSKEYDOWN, l & (1 << 30));
+        if (data->input && data->input->key_event) {
+          key_descriptor descriptor = ::window::os_to_key(w);
 
-        if (data->input->key_event != nullptr)
           data->input->key_event(msg == WM_SYSKEYDOWN, descriptor);
-
+        }
         return 0;
       }
       case WM_LBUTTONDOWN:
@@ -95,83 +94,76 @@ namespace window {
       case WM_MBUTTONUP:
       case WM_XBUTTONDOWN:
       case WM_XBUTTONUP: {
-        int btn = 0;
-        bool down;
+        if (data->input && data->input->button_event) {
+          int btn = 0;
+          bool down;
 
-        switch (msg) {
-        case WM_LBUTTONDOWN: btn = VK_LBUTTON; down = true; break;
-        case WM_LBUTTONUP: btn = VK_LBUTTON; down = false; break;
-        case WM_RBUTTONDOWN: btn = VK_RBUTTON; down = true; break;
-        case WM_RBUTTONUP: btn = VK_RBUTTON; down = false; break;
-        case WM_MBUTTONDOWN: btn = VK_MBUTTON; down = true; break;
-        case WM_MBUTTONUP: btn = VK_MBUTTON; down = false; break;
-        case WM_XBUTTONDOWN: btn = VK_XBUTTON1 + HIWORD(w) - 1; down = true; break;
-        case WM_XBUTTONUP: btn = VK_XBUTTON1 + HIWORD(w) - 1; down = false; break;
-        }
+          switch (msg) {
+          case WM_LBUTTONDOWN: btn = VK_LBUTTON; down = true; break;
+          case WM_LBUTTONUP: btn = VK_LBUTTON; down = false; break;
+          case WM_RBUTTONDOWN: btn = VK_RBUTTON; down = true; break;
+          case WM_RBUTTONUP: btn = VK_RBUTTON; down = false; break;
+          case WM_MBUTTONDOWN: btn = VK_MBUTTON; down = true; break;
+          case WM_MBUTTONUP: btn = VK_MBUTTON; down = false; break;
+          case WM_XBUTTONDOWN: btn = VK_XBUTTON1 + HIWORD(w) - 1; down = true; break;
+          case WM_XBUTTONUP: btn = VK_XBUTTON1 + HIWORD(w) - 1; down = false; break;
+          }
 
-        button_descriptor descriptor = ::window::os_to_button(btn);
-        data->input->buttons[descriptor.b] = down;
+          button_descriptor descriptor = ::window::os_to_button(btn);
 
-        if (data->input->button_event != nullptr)
           data->input->button_event(down, descriptor);
-
+        }
         return 0;
       }
       case WM_LBUTTONDBLCLK:
       case WM_RBUTTONDBLCLK:
       case WM_MBUTTONDBLCLK:
       case WM_XBUTTONDBLCLK: {
-        int btn = 0;
+        if (data->input) {
+          int btn = 0;
 
-        switch (msg) {
-        case WM_LBUTTONDBLCLK: btn = VK_LBUTTON; break;
-        case WM_RBUTTONDBLCLK: btn = VK_RBUTTON; break;
-        case WM_MBUTTONDBLCLK: btn = VK_MBUTTON; break;
-        case WM_XBUTTONDBLCLK: btn = VK_XBUTTON1 + HIWORD(w) - 1; break;
+          switch (msg) {
+            case WM_LBUTTONDBLCLK: btn = VK_LBUTTON; break;
+            case WM_RBUTTONDBLCLK: btn = VK_RBUTTON; break;
+            case WM_MBUTTONDBLCLK: btn = VK_MBUTTON; break;
+            case WM_XBUTTONDBLCLK: btn = VK_XBUTTON1 + HIWORD(w) - 1; break;
+          }
+
+          button_descriptor descriptor = ::window::os_to_button(btn);
+
+          if (data->input->dblclk_event != nullptr)
+            data->input->dblclk_event(descriptor);
+          // if we have no double click handler, we just prepend,
+          // that its a normal second mouse button click
+          else if (data->input->button_event != nullptr)
+            data->input->button_event(true, descriptor);
         }
-
-        button_descriptor descriptor = ::window::os_to_button(btn);
-        data->input->buttons[descriptor.b] = true;
-
-        if (data->input->dblclk_event != nullptr)
-          data->input->dblclk_event(descriptor);
-        // if we have no double click handler, we just prepend, 
-        // that its a normal second mouse button click
-        else if (data->input->button_event != nullptr)
-          data->input->button_event(true, descriptor);
 
         return 0;
       }
       case WM_MOUSEMOVE: {
-        int xPos = LOWORD(l);
-        int yPos = HIWORD(l);
+        if (data->input && data->input->mouse_event) {
+          int xPos = LOWORD(l);
+          int yPos = HIWORD(l);
 
-        data->input->mouseX = xPos;
-        data->input->mouseY = yPos;
-
-        if (data->input->mouse_event != nullptr)
           data->input->mouse_event(xPos, yPos);
-
+        }
         return 0;
       }
       case WM_MOUSEWHEEL: {
-        float wheel_delta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(w)) / static_cast<float>(WHEEL_DELTA);
+        if (data->input && data->input->vscroll_event) {
+          float wheel_delta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(w)) / static_cast<float>(WHEEL_DELTA);
 
-        data->input->mouse_wheel += wheel_delta;
-
-        if (data->input->vscroll_event != nullptr)
           data->input->vscroll_event(wheel_delta);
-
+        }
         return 0;
       }
       case WM_MOUSEHWHEEL: {
-        float wheel_delta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(w)) / static_cast<float>(WHEEL_DELTA);
+        if (data->input && data->input->hscroll_event) {
+          float wheel_delta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(w)) / static_cast<float>(WHEEL_DELTA);
 
-        data->input->mouse_wheel += wheel_delta;
-
-        if (data->input->hscroll_event != nullptr)
           data->input->hscroll_event(wheel_delta);
-
+        }
         return 0;
       }
       case WM_CLOSE: {
@@ -339,7 +331,8 @@ namespace window {
       fprintf(stderr, "[window] win32: The function wglSwapIntervalEXT seems to be unsupported!!!\n");
       return UNSUPPORTED;
     }
-    win32::wglSwapIntervalEXT(interval);
+    BOOL success = win32::wglSwapIntervalEXT(interval);
+    return success ? SUCCESS : UNKNOWNFAILURE;
   }
 
   key_event_callback window::set_key_event(key_event_callback func) noexcept {

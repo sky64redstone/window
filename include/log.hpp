@@ -4,9 +4,7 @@
   namespace window {
     enum log_level {
       LOG_LEVEL_ERROR,
-      LOG_LEVEL_WARNING,
-      LOG_LEVEL_SUCCESS,
-      LOG_LEVEL_INFO
+      LOG_LEVEL_WARNING
     };
 
     // I have no idea how I should name this enum...
@@ -20,9 +18,6 @@
 
     #define log_error(layer, ...)   log(::window::log_level::LOG_LEVEL_ERROR,   layer, __FILE__, __LINE__, __func__, __VA_ARGS__)
     #define log_warning(layer, ...) log(::window::log_level::LOG_LEVEL_WARNING, layer, __FILE__, __LINE__, __func__, __VA_ARGS__)
-    #define log_success(layer, ...) log(::window::log_level::LOG_LEVEL_SUCCESS, layer, __FILE__, __LINE__, __func__, __VA_ARGS__)
-    #define log_info(layer, ...)    log(::window::log_level::LOG_LEVEL_INFO,    layer, __FILE__, __LINE__, __func__, __VA_ARGS__)
-    #define log_loading(layer, ...) log(::window::log_level::LOG_LEVEL_LOADING, layer, __FILE__, __LINE__, __func__, __VA_ARGS__)
 
   }
 

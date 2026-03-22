@@ -1,10 +1,6 @@
 #ifndef INPUT_HPP
   #define INPUT_HPP
 
-  #define input_char(curr, prev) static_cast<char>(static_cast<bool>(curr) | (static_cast<bool>(prev) << 1))
-  #define input_get_curr(data) static_cast<bool>(static_cast<char>(data) & 0b01)
-  #define input_get_prev(data) static_cast<bool>(static_cast<char>(data) & 0b10)
-
   namespace window {
 
     enum key : char {
@@ -131,14 +127,7 @@
       scroll_event_callback hscroll_event;
       size_event_callback   size_event;
 
-      char keys[KEY_COUNT];
-
-      char buttons[BUTTON_COUNT];
-
-      int mouseX;
-      int mouseY;
-
-      float mouse_wheel;
+      unsigned long long    last_click;
     };
   }
 

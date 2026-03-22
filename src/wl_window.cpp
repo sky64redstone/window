@@ -76,6 +76,8 @@ namespace window::wl {
           wl_registry_bind(registry, id, &zxdg_decoration_manager_v1_interface, 1)
         );
       }
+    } else {
+      ::window::log_error(window::LOG_WAYLAND, "Received nullpointer data");
     }
   }
 
@@ -147,6 +149,10 @@ namespace window::wl {
     }
 
     char* map = (char*)mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
+    if (map == MAP_FAILED) {
+      close(fd);
+      return;
+    }
 
     win->kb_ctx = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
 
@@ -171,12 +177,11 @@ namespace window::wl {
   static void keyboard_key(void* data, wl_keyboard* keyboard, uint32_t serial,
                            uint32_t time, uint32_t key, uint32_t state) {
     window_wl_data* win = static_cast<window_wl_data*>(data);
+    if (win->input && win->input->key_event && win->kb_state) {
+      xkb_keysym_t sym = xkb_state_key_get_one_sym(win->kb_state, key + 8);
 
-    xkb_keysym_t sym = xkb_state_key_get_one_sym(win->kb_state, key + 8);
+      key_descriptor desc = os_to_key(sym);
 
-    key_descriptor desc = os_to_key(sym);
-
-    if (win->input && win->input->key_event) {
       win->input->key_event(
         state == WL_KEYBOARD_KEY_STATE_PRESSED,
         desc
@@ -235,37 +240,36 @@ namespace window::wl {
                              uint32_t time, uint32_t button, uint32_t state) {
     window_wl_data* win = static_cast<window_wl_data*>(data);
 
-    button_descriptor desc = os_to_button(button);
+    if (win->input) {
+      bool pressed = state == WL_POINTER_BUTTON_STATE_PRESSED;
+      button_descriptor desc = os_to_button(button);
 
-    static unsigned long last_click = (unsigned long)-1;
+      // Only generate double click events on pressing the button,
+      // not on releasing it
+      if (win->input->dblclk_event && pressed) {
+        timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
+        unsigned long now = t.tv_sec * 1000 + t.tv_nsec / 1000000;
 
-    timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
-    unsigned long now = t.tv_sec * 1000 + t.tv_nsec / 1000000;
-
-    // Only generate double click events on pressing the button,
-    // not on releasing it
-    if (state == WL_POINTER_BUTTON_STATE_PRESSED) {
-      // The recommended delta time for a double click
-      // from Microsoft is: 500ms
-      // TODO hint for the delta time!
-      if (now - last_click <= 500/*ms delta*/) {
-        if (win->input && win->input->dblclk_event != nullptr) {
+        // The recommended delta time for a double click
+        // from Microsoft is: 500ms
+        // TODO hint for the delta time!
+        if (now - win->input->last_click <= 500/*ms delta*/) {
           win->input->dblclk_event(desc);
           // prevent the next click to be a double click
-          last_click = now - 500;
+          win->input->last_click = now - 500;
           return;
         }
-        // if we have no double click handler, we just prepend,
-        // that its a normal second mouse button click
+        win->input->last_click = now;
       }
-      last_click = now;
-    }
 
-    if (win->input && win->input->button_event) {
-      win->input->button_event(
-        state == WL_POINTER_BUTTON_STATE_PRESSED,
-        desc
-      );
+      // if we have no double click handler, we just prepend,
+      // that its a normal second mouse button click
+      if (win->input->button_event) {
+        win->input->button_event(
+          state == WL_POINTER_BUTTON_STATE_PRESSED,
+          desc
+        );
+      }
     }
   }
 
@@ -273,16 +277,18 @@ namespace window::wl {
                            uint32_t axis, wl_fixed_t value) {
     window_wl_data* win = static_cast<window_wl_data*>(data);
 
-    float scroll = (float)wl_fixed_to_double(value)/15.f;
+    if (win->input) {
+      float scroll = (float)wl_fixed_to_double(value)/15.f;
 
-    if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
-      if (win->input->vscroll_event)
-        win->input->vscroll_event(scroll);
-    }
+      if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
+        if (win->input->vscroll_event)
+          win->input->vscroll_event(scroll);
+      }
 
-    if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
-      if (win->input->hscroll_event)
-        win->input->hscroll_event(scroll);
+      if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
+        if (win->input->hscroll_event)
+          win->input->hscroll_event(scroll);
+      }
     }
   }
 

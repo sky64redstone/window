@@ -11,9 +11,7 @@ namespace window {
 
   static const char* level_names[] = {
     "  ERROR  ",
-    " WARNING ",
-    " SUCCESS ",
-    "  INFO   "
+    " WARNING "
   };
   static const char* layer_names[] = {
     "wayland",
@@ -36,7 +34,7 @@ namespace window {
 
     /* level string (bounds-checked) */
     const char* lvl = "UNKNOWN";
-    if (level >= LOG_LEVEL_ERROR && level <= LOG_LEVEL_INFO) {
+    if (level >= LOG_LEVEL_ERROR && level <= LOG_LEVEL_WARNING) {
       lvl = level_names[level];
     }
 
