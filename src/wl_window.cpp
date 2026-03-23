@@ -150,6 +150,7 @@ namespace window::wl {
 
     char* map = (char*)mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
     if (map == MAP_FAILED) {
+      ::window::log_error(window::LOG_WAYLAND, "mmap failed");
       close(fd);
       return;
     }
@@ -266,7 +267,7 @@ namespace window::wl {
       // that its a normal second mouse button click
       if (win->input->button_event) {
         win->input->button_event(
-          state == WL_POINTER_BUTTON_STATE_PRESSED,
+          pressed,
           desc
         );
       }

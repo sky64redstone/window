@@ -1,6 +1,10 @@
 #ifndef LOG_HPP
   #define LOG_HPP
 
+  #ifndef __func__
+    #define __func__ __FUNCTION__
+  #endif
+
   namespace window {
     enum log_level {
       LOG_LEVEL_ERROR,

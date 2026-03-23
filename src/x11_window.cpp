@@ -187,7 +187,8 @@ namespace window {
         }
         case ButtonPress:
         case ButtonRelease: {
-          // TODO mouse integration
+          if (!data.input)
+            break;
 
           // Vertical Scrolling :)
           if (event.xbutton.button == 4) {
@@ -218,39 +219,37 @@ namespace window {
             }
             break;
           }
-          
-          static unsigned long last_click = (unsigned long)-1;
 
-          button_descriptor b = os_to_button(event.xbutton.button);
+          bool pressed = event.type == ButtonPress;
+          button_descriptor desc = os_to_button(event.xbutton.button);
 
-          timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
-          unsigned long now = t.tv_sec * 1000 + t.tv_nsec / 1000000;
-          
           // Only generate double click events on pressing the button,
           // not on releasing it
-          if (event.type == ButtonPress) {
+          if (data.input->dblclk_event && pressed) {
+            timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
+            unsigned long now = t.tv_sec * 1000 + t.tv_nsec / 1000000;
+
             // The recommended delta time for a double click
             // from Microsoft is: 500ms
             // TODO hint for the delta time!
-            if (now - last_click <= 500/*ms delta*/) {
-              if (data.input && data.input->dblclk_event != nullptr) {
-                data.input->dblclk_event(b);
-                // prevent the next click to be a double click
-                last_click = now - 500;
-                break;
-              }
-              // if we have no double click handler, we just prepend, 
-              // that its a normal second mouse button click
+            if (now - data.input->last_click <= 500/*ms delta*/) {
+              data.input->dblclk_event(desc);
+              // prevent the next click to be a double click
+              data.input->last_click = now - 500;
+              break;
             }
-            last_click = now;
+            data.input->last_click = now;
           }
 
-          if (data.input->button_event != nullptr) {
-            data.input->button_event(event.type == ButtonPress, b);
-            if (event.type == ButtonPress) {
-              last_click = now;
-            }
+          // if we have no double click handler, we just prepend,
+          // that its a normal second mouse button click
+          if (data.input->button_event) {
+            data.input->button_event(
+              pressed,
+              desc
+            );
           }
+
 
           break;
         }
