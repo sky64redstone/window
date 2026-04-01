@@ -131,6 +131,16 @@
       result swap_interval(int interval) const noexcept;
 
       /*
+       * Enables the program to set a custom user data, which will be received
+       * with every event callback to identify the window.
+       *
+       * data: custom user data to set
+       *
+       * returns: previous contained data
+       */
+      void* set_user_data(void* data) noexcept;
+
+      /*
        * Sets an event callback function for a key event.
        * This function is called when a key is pressed, released or repeated.
        *

@@ -153,6 +153,12 @@ namespace window {
     #endif
   }
 
+  void* window::set_user_data(void* data) noexcept {
+    void* temp = input.user_data;
+    input.user_data = data;
+    return temp;
+  }
+
   key_event_callback window::set_key_event(key_event_callback func) noexcept {
     key_event_callback temp = input.key_event;
     input.key_event = func;

@@ -127,7 +127,7 @@ namespace window::wl {
       wl_egl_window_resize(win->egl_window, width, height, 0, 0);
 
     if (win->input && win->input->size_event)
-      win->input->size_event(width, height);
+      win->input->size_event(width, height, win->input->user_data);
 
     // Update surface geometry in xdg_surface.configure
     //xdg_surface_set_window_geometry(win->xsurface, 0, 0, width, height);
@@ -185,7 +185,8 @@ namespace window::wl {
 
       win->input->key_event(
         state == WL_KEYBOARD_KEY_STATE_PRESSED,
-        desc
+        desc,
+        win->input->user_data
       );
     }
   }
@@ -232,7 +233,8 @@ namespace window::wl {
     if (win->input && win->input->mouse_event) {
       win->input->mouse_event(
         wl_fixed_to_int(sx),
-        wl_fixed_to_int(sy)
+        wl_fixed_to_int(sy),
+        win->input->user_data
       );
     }
   }
@@ -255,7 +257,7 @@ namespace window::wl {
         // from Microsoft is: 500ms
         // TODO hint for the delta time!
         if (now - win->input->last_click <= 500/*ms delta*/) {
-          win->input->dblclk_event(desc);
+          win->input->dblclk_event(desc, win->input->user_data);
           // prevent the next click to be a double click
           win->input->last_click = now - 500;
           return;
@@ -268,7 +270,8 @@ namespace window::wl {
       if (win->input->button_event) {
         win->input->button_event(
           pressed,
-          desc
+          desc,
+          win->input->user_data
         );
       }
     }
@@ -283,12 +286,12 @@ namespace window::wl {
 
       if (axis == WL_POINTER_AXIS_VERTICAL_SCROLL) {
         if (win->input->vscroll_event)
-          win->input->vscroll_event(scroll);
+          win->input->vscroll_event(scroll, win->input->user_data);
       }
 
       if (axis == WL_POINTER_AXIS_HORIZONTAL_SCROLL) {
         if (win->input->hscroll_event)
-          win->input->hscroll_event(scroll);
+          win->input->hscroll_event(scroll, win->input->user_data);
       }
     }
   }

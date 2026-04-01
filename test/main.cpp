@@ -3,29 +3,29 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static void key_event(bool down, window::key_descriptor& k) noexcept {
+static void key_event(bool down, window::key_descriptor& k, void* data) noexcept {
   if (down)
     printf("Key pressed: %s\n", k.description);
 }
 
-static void btn_event(bool down, window::button_descriptor& b) noexcept {
+static void btn_event(bool down, window::button_descriptor& b, void* data) noexcept {
   if (down)
     printf("Button pressed: %s\n", b.description);
 }
 
-static void dblclk_event(window::button_descriptor& b) noexcept {
+static void dblclk_event(window::button_descriptor& b, void* data) noexcept {
   printf("Button double click: %s\n", b.description);
 }
 
-static void vscroll_event(float delta) noexcept {
+static void vscroll_event(float delta, void* data) noexcept {
   printf("Mouse wheel vertical delta: %.2f\n", delta);
 }
 
-static void hscroll_event(float delta) noexcept {
+static void hscroll_event(float delta, void* data) noexcept {
   printf("Mouse wheel horiziontal delta: %.2f\n", delta);
 }
 
-static void mouse_event(int x, int y) noexcept {
+static void mouse_event(int x, int y, void* data) noexcept {
   // we use a threshold to not spam the console full
   const int threshold = 50;
 
@@ -39,7 +39,7 @@ static void mouse_event(int x, int y) noexcept {
   }
 }
 
-static void size_event(int w, int h) noexcept {
+static void size_event(int w, int h, void* data) noexcept {
   // we use a threshold to not spam the console full
   const int threshold = 50;
 

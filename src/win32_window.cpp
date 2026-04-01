@@ -37,6 +37,8 @@ namespace window {
     inline static LRESULT CALLBACK global_window_event(HWND wnd, UINT msg, WPARAM w, LPARAM l) noexcept {
       window_win32_data* data = get_data(wnd, msg, l);
       if (!data) return DefWindowProc(wnd, msg, w, l);
+      // get user data
+      void* ud = data->input->user_data;
 
       switch (msg) {
       case WM_CREATE: {
@@ -54,7 +56,7 @@ namespace window {
         data->height = HIWORD(l);
 
         if (data->input && data->input->size_event) {
-          data->input->size_event(data->width, data->height);
+          data->input->size_event(data->width, data->height, ud);
         }
 
         return 0;
@@ -72,7 +74,7 @@ namespace window {
         if (data->input && data->input->key_event) {
           key_descriptor descriptor = ::window::os_to_key(w);
 
-          data->input->key_event(msg == WM_KEYDOWN, descriptor);
+          data->input->key_event(msg == WM_KEYDOWN, descriptor, ud);
         }
 
         return 0;
@@ -82,7 +84,7 @@ namespace window {
         if (data->input && data->input->key_event) {
           key_descriptor descriptor = ::window::os_to_key(w);
 
-          data->input->key_event(msg == WM_SYSKEYDOWN, descriptor);
+          data->input->key_event(msg == WM_SYSKEYDOWN, descriptor, ud);
         }
         return 0;
       }
@@ -111,7 +113,7 @@ namespace window {
 
           button_descriptor descriptor = ::window::os_to_button(btn);
 
-          data->input->button_event(down, descriptor);
+          data->input->button_event(down, descriptor, ud);
         }
         return 0;
       }
@@ -132,11 +134,11 @@ namespace window {
           button_descriptor descriptor = ::window::os_to_button(btn);
 
           if (data->input->dblclk_event != nullptr)
-            data->input->dblclk_event(descriptor);
+            data->input->dblclk_event(descriptor, ud);
           // if we have no double click handler, we just prepend,
           // that its a normal second mouse button click
           else if (data->input->button_event != nullptr)
-            data->input->button_event(true, descriptor);
+            data->input->button_event(true, descriptor, ud);
         }
 
         return 0;
@@ -146,7 +148,7 @@ namespace window {
           int xPos = LOWORD(l);
           int yPos = HIWORD(l);
 
-          data->input->mouse_event(xPos, yPos);
+          data->input->mouse_event(xPos, yPos, ud);
         }
         return 0;
       }
@@ -154,7 +156,7 @@ namespace window {
         if (data->input && data->input->vscroll_event) {
           float wheel_delta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(w)) / static_cast<float>(WHEEL_DELTA);
 
-          data->input->vscroll_event(wheel_delta);
+          data->input->vscroll_event(wheel_delta, ud);
         }
         return 0;
       }
@@ -162,7 +164,7 @@ namespace window {
         if (data->input && data->input->hscroll_event) {
           float wheel_delta = static_cast<float>(GET_WHEEL_DELTA_WPARAM(w)) / static_cast<float>(WHEEL_DELTA);
 
-          data->input->hscroll_event(wheel_delta);
+          data->input->hscroll_event(wheel_delta, ud);
         }
         return 0;
       }
@@ -333,6 +335,12 @@ namespace window {
     }
     BOOL success = win32::wglSwapIntervalEXT(interval);
     return success ? SUCCESS : UNKNOWNFAILURE;
+  }
+
+  void* window::set_user_data(void* data) noexcept {
+    void* temp = input.user_data;
+    input.user_data = data;
+    return temp;
   }
 
   key_event_callback window::set_key_event(key_event_callback func) noexcept {

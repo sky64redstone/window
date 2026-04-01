@@ -145,6 +145,8 @@ namespace window {
 
       XPending(data.display);
 
+      void* ud = data.input->user_data;
+
       while (QLength(data.display)) {
         XNextEvent(data.display, &event);
           
@@ -177,7 +179,7 @@ namespace window {
           key_descriptor key = os_to_key(keysym);
 
           if (data.input->key_event) {
-            data.input->key_event(event.type == KeyPress, key);
+            data.input->key_event(event.type == KeyPress, key, ud);
           }
 
           //unsigned int keycode = event.xkey.keycode;
@@ -193,14 +195,14 @@ namespace window {
           // Vertical Scrolling :)
           if (event.xbutton.button == 4) {
             if (data.input->vscroll_event != nullptr) {
-              data.input->vscroll_event(-1);
+              data.input->vscroll_event(-1, ud);
             }
             break;
           }
 
           if (event.xbutton.button == 5) {
             if (data.input->vscroll_event != nullptr) {
-              data.input->vscroll_event(1);
+              data.input->vscroll_event(1, ud);
             }
             break;
           }
@@ -208,14 +210,14 @@ namespace window {
           // Horiziontal Scrolling :)
           if (event.xbutton.button == 6) {
             if (data.input->hscroll_event != nullptr) {
-              data.input->hscroll_event(-1);
+              data.input->hscroll_event(-1, ud);
             }
             break;
           }
 
           if (event.xbutton.button == 7) {
             if (data.input->hscroll_event != nullptr) {
-              data.input->hscroll_event(1);
+              data.input->hscroll_event(1, ud);
             }
             break;
           }
@@ -233,7 +235,7 @@ namespace window {
             // from Microsoft is: 500ms
             // TODO hint for the delta time!
             if (now - data.input->last_click <= 500/*ms delta*/) {
-              data.input->dblclk_event(desc);
+              data.input->dblclk_event(desc, ud);
               // prevent the next click to be a double click
               data.input->last_click = now - 500;
               break;
@@ -246,7 +248,8 @@ namespace window {
           if (data.input->button_event) {
             data.input->button_event(
               pressed,
-              desc
+              desc,
+              ud
             );
           }
 
@@ -256,7 +259,7 @@ namespace window {
         case MotionNotify: {
           
           if (data.input->mouse_event != nullptr) {
-            data.input->mouse_event(event.xmotion.x, event.xmotion.y);
+            data.input->mouse_event(event.xmotion.x, event.xmotion.y, ud);
           }
 
           break;

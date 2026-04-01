@@ -111,12 +111,16 @@
 
     button_descriptor os_to_button(int os_button) noexcept;
 
-    using key_event_callback    = void(*)(bool down, key_descriptor& k);
-    using button_event_callback = void(*)(bool down, button_descriptor& b);
-    using dblclk_event_callback = void(*)(button_descriptor& b);
-    using mouse_event_callback  = void(*)(int x, int y);
-    using scroll_event_callback = void(*)(float delta);
-    using size_event_callback   = void(*)(int w, int h);
+    using key_event_callback    = void(*)(
+        bool down, key_descriptor& k, void* data
+      );
+    using button_event_callback = void(*)(
+        bool down, button_descriptor& b, void* data
+      );
+    using dblclk_event_callback = void(*)(button_descriptor& b, void* data);
+    using mouse_event_callback  = void(*)(int x, int y, void* data);
+    using scroll_event_callback = void(*)(float delta, void* data);
+    using size_event_callback   = void(*)(int w, int h, void* data);
 
     struct input_data {
       key_event_callback    key_event;
@@ -126,6 +130,8 @@
       scroll_event_callback vscroll_event;
       scroll_event_callback hscroll_event;
       size_event_callback   size_event;
+
+      void*                 user_data;
 
       unsigned long long    last_click;
     };
