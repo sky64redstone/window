@@ -51,6 +51,10 @@ namespace window {
 
         return 0;
       }
+      case WM_SETCURSOR: {
+        SetCursor(LoadCursor(nullptr, IDC_ARROW));
+        return 0;
+      }
       case WM_SIZE: {
         data->width  = LOWORD(l);
         data->height = HIWORD(l);
@@ -386,7 +390,7 @@ namespace window {
   }
 
   backend window::get_backend() const noexcept {
-    return ::window::backend::WIN32;
+    return ::window::backend::WINDOWS;
   }
 
   void window::destroy() noexcept {

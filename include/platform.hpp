@@ -23,9 +23,15 @@
     #if defined(window_win32)
       #define NOMINMAX
       #define WIN32_LEAN_AND_MEAN
-      #include <Windows.h>
-      #include <dwmapi.h>
-      #include <gl/GL.h>
+      #if defined(__MINGW32__) || defined(__MINGW64__)
+        #include <windows.h>
+        #include <dwmapi.h>
+        #include <GL/gl.h>
+      #else
+        #include <Windows.h>
+        #include <dwmapi.h>
+        #include <gl/GL.h>
+      #endif
 
       struct window_win32_data {
         window::input_data* input;

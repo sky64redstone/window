@@ -14,7 +14,7 @@
 
   namespace window {
     enum backend {
-      WIN32,
+      WINDOWS,
       X11,
       WAYLAND
     };
