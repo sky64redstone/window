@@ -23,12 +23,6 @@ cd build
 ./window_test
 ```
 
-For API details, refer to the main header:
-
-```
-include/window.hpp
-```
-
 ---
 
 ## Supported Platforms
@@ -127,8 +121,8 @@ git clone https://github.com/sky64redstone/window.git
 cd window
 ```
 
+### Compiling
 Build the library with the following commands
-> Windows users: after running `cmake ..` you can open the project in Visual Studio, since CMake doesn't create Makefiles on Windows
 
 ```bash
 mkdir build
@@ -137,19 +131,16 @@ cmake ..
 make
 ```
 
----
+> Windows users: after running `cmake ..` you can open the project in Visual Studio, since CMake doesn't create Makefiles on Windows
 
-## Project Structure
+### Cross compiling on Linux
 
-Example structure:
+This project supports cross-compiling to Windows.
+It uses mingw-w64 to compile and wine to test the generated executable.
 
-```
-window/
-├── src/          # Source code
-├── include/      # Header files
-├── test/         # Example code
-├── build/        # Compiled files
-├── .gitignore
-├── CMakeLists.txt
-└── README.md
+```bash
+# Just compile it
+bash cross-compile.sh
+# Compile and run it with wine
+bash cross-compile.sh run
 ```
