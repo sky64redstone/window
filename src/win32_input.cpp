@@ -1,5 +1,5 @@
-#include "include/input.hpp"
-#include "include/platform.hpp"
+#include "window/input.hpp"
+#include "window/platform.hpp"
 
 namespace window {
   inline key_descriptor win32_keycodes[0xFF] = { { KEY_COUNT, "ERROR" } };

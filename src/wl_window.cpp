@@ -1,12 +1,11 @@
-#include "include/wayland.hpp"
+#include "window/wayland.hpp"
 
-#include <stdio.h>
 #include <string.h>   // strcmp
 #include <sys/mman.h> // mmap
 #include <unistd.h>   // close
 #include <time.h>     // for clock_gettime (for dbl clk events)
 
-#include "include/log.hpp"
+#include "window/log.hpp"
 
 namespace window::wl {
   const char* eglGetErrorString(EGLint error) {
@@ -405,6 +404,9 @@ namespace window::wl {
     }
     xdg_surface_set_window_geometry(data.xsurface, 0, 0, w, h);
     xdg_toplevel_set_title(data.xtoplevel, title);
+    if (data.hintmem->appname) {
+      xdg_toplevel_set_app_id(data.xtoplevel, data.hintmem->appname);
+    }
     wl_surface_commit(data.surface);
 
     data.isopen = true;
@@ -469,7 +471,6 @@ namespace window::wl {
     }
 
     EGLint attr[] = {
-      //EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
       EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
       EGL_RED_SIZE, 8,
       EGL_GREEN_SIZE, 8,
@@ -493,10 +494,10 @@ namespace window::wl {
       return ::window::UNKNOWNFAILURE;
     }
 
+    bool glv = data.hintmem->glvmajor > 0 && data.hintmem->glvminor >= 0;
     EGLint ctxattr[] = {
-      //EGL_CONTEXT_CLIENT_VERSION, 2,
-      EGL_CONTEXT_MAJOR_VERSION, 4,
-      EGL_CONTEXT_MINOR_VERSION, 5,
+      EGL_CONTEXT_MAJOR_VERSION, glv ? data.hintmem->glvmajor : 3,
+      EGL_CONTEXT_MINOR_VERSION, glv ? data.hintmem->glvminor : 3,
       EGL_NONE
     };
 
@@ -504,8 +505,8 @@ namespace window::wl {
 
     if (data.egl_context == EGL_NO_CONTEXT) {
       EGLint error = eglGetError();
-      ::window::log_error(window::LOG_WAYLAND, "Failed to create EGL Context (code 0x%x=%s)",
-        error, eglGetErrorString(error)
+      ::window::log_error(window::LOG_WAYLAND, "Failed to create EGL %i.%i Context (code 0x%x=%s)",
+        data.hintmem->glvmajor, data.hintmem->glvminor, error, eglGetErrorString(error)
       );
       return ::window::CREATIONFAILED;
     }
@@ -617,8 +618,10 @@ namespace window::wl {
       wl_display_disconnect(data.display);
     }
     ::window::input_data* input = data.input;
+    ::window::hint_data* hintmem = data.hintmem;
     memset(&data, 0, sizeof(data));
     data.input = input;
+    data.hintmem = hintmem;
     // ensure window closed
     data.isopen = false;
     data.display = nullptr;

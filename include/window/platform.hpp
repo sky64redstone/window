@@ -10,6 +10,7 @@
   #endif
 
   #include "input.hpp"
+  #include "hints.hpp"
 
   #if defined(window_os_linux)
     #define window_api __attribute__((visibility("default")))
@@ -34,7 +35,7 @@
       #endif
 
       struct window_win32_data {
-        window::input_data* input;
+        ::window::input_data* input;
         HWND win;
         HDC dc;
         HGLRC rc;
@@ -77,6 +78,12 @@
       // the operation was aborted, because
       // a quit message was received
       QUIT
+    };
+
+    enum backend {
+      WINDOWS,
+      X11,
+      WAYLAND
     };
   }
 

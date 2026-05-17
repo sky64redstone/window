@@ -1,5 +1,5 @@
-#include "include/input.hpp"
-#include "include/platform.hpp"
+#include "input.hpp"
+#include "platform.hpp"
 
 namespace window {
   #if defined(window_x11) && defined(window_wl)

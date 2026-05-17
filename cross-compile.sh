@@ -13,7 +13,7 @@ cmake .. -DCMAKE_TOOLCHAIN_FILE=../toolchain-mingw.cmake
 echo "[4/4] Building project..."
 cmake --build .
 
-if [[ "$1" = "run" ]]; then
+if [[ "${1:-}" = "run" ]]; then
   echo "Running example code..."
   export WINEPATH="/usr/x86_64-w64-mingw32/bin/"
   wine window_test.exe

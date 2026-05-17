@@ -6,12 +6,14 @@
   #include <X11/Xutil.h>
   // opengl integration
   #include <GL/glx.h>
+  #include <GL/glxext.h>
 
   #include "platform.hpp"
 
   // x11 data struct
   struct window_x11_data {
     ::window::input_data* input;
+    ::window::hint_data*  hintmem;
     Display*   display;
     Window     root;
     Window     win;

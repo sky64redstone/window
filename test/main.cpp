@@ -1,4 +1,4 @@
-#include <include/window.hpp>
+#include <window/window.hpp>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,9 +59,16 @@ int main() {
   window::window win{};
 
   // creating the opengl window
+  win.set_appname("myappname");
+  win.set_glversion(3,3); // should be called before every create function
   win.create(300, 200, "TEST! :)");
   win.make_opengl_context();
-  printf("Backend: %s\n", (win.get_backend() == window::WAYLAND ? "wayland" : (win.get_backend() == window::X11 ? "X11" : "Win32")));
+
+  printf("Backend: %s\n", (
+    win.get_backend() == window::WAYLAND ? "Wayland" : (
+      win.get_backend() == window::X11 ? "X11" : "Win32")
+    )
+  );
   printf("OpenGL: %s\n", glGetString(GL_VERSION));
 
   // setting event callbacks up

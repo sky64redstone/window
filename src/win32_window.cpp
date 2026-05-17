@@ -1,17 +1,43 @@
-#include "include/window.hpp"
+#include "window/window.hpp"
 
 #include <stdio.h>
+
+#include "window/log.hpp"
 
 namespace window {
 
   namespace win32 {
 
-    using gl_swap_interval_proc = BOOL(WINAPI*)(int interval);
-    inline gl_swap_interval_proc wglSwapIntervalEXT = nullptr;
+    #define WGL_CONTEXT_MAJOR_VERSION_ARB 0x2091
+    #define WGL_CONTEXT_MINOR_VERSION_ARB 0x2092
+    #define WGL_CONTEXT_FLAGS_ARB         0x2094
+    #define WGL_CONTEXT_PROFILE_MASK_ARB  0x9126
+
+    #define WGL_CONTEXT_CORE_PROFILE_BIT_ARB          0x00000001
+    #define WGL_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB 0x00000002
+
+    #define WGL_CONTEXT_DEBUG_BIT_ARB 0x0001
+
+    using wglCreateContextAttribsARBProc = HGLRC(WINAPI*)(
+      HDC hdc, HGLRC hShareContext, const int* attribList
+    );
+    inline wglCreateContextAttribsARBProc wglCreateContextAttribsARB = nullptr;
+
+    inline static void load_wgl_create_context() noexcept {
+      if (wglCreateContextAttribsARB == nullptr) {
+        wglCreateContextAttribsARB =
+          reinterpret_cast<wglCreateContextAttribsARBProc>(
+            wglGetProcAddress("wglCreateContextAttribsARB")
+          );
+      }
+    }
+
+    using wglSwapIntervalEXTProc = BOOL(WINAPI*)(int interval);
+    inline wglSwapIntervalEXTProc wglSwapIntervalEXT = nullptr;
 
     inline static void load_swap_interval() noexcept {
       if (wglSwapIntervalEXT == nullptr) {
-        wglSwapIntervalEXT = reinterpret_cast<gl_swap_interval_proc>(
+        wglSwapIntervalEXT = reinterpret_cast<wglSwapIntervalEXTProc>(
           wglGetProcAddress("wglSwapIntervalEXT")
         );
       }
@@ -191,11 +217,12 @@ namespace window {
   window::window() noexcept {
     os_to_key(0); // pre load keys
     input = {};
+    hintmem = {};
     win32 = {};
+    win32.input = &input;
     win32.win = nullptr;
     win32.dc = nullptr;
     win32.rc = nullptr;
-    win32.input = &input;
     win32.isopen = false;
     win32.x = -1;
     win32.y = -1;
@@ -223,7 +250,7 @@ namespace window {
         .hCursor       = LoadCursor(inst, IDC_ARROW),
         .hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1),
         .lpszMenuName  = nullptr,
-        .lpszClassName = "window_api::window"
+        .lpszClassName = hintmem.appname ? hintmem.appname : "window_api::window"
       };
 
       classAtom = RegisterClassA(&wcls);
@@ -290,36 +317,115 @@ namespace window {
     win32.dc = GetDC(win32.win);
 
     if (win32.dc == NULL) {
-      fprintf(stderr, "[window] win32: Unable to get the device context (DC)!!!\n");
+      log_error(LOG_WIN, "Unable to get the device context (DC)");
       return BADWINDOW;
     }
 
-    constexpr PIXELFORMATDESCRIPTOR pfd = {
-      sizeof(PIXELFORMATDESCRIPTOR), 1,
-      PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
-      PFD_TYPE_RGBA, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      PFD_MAIN_PLANE, 0, 0, 0, 0
+    PIXELFORMATDESCRIPTOR pfd = {
+      sizeof(PIXELFORMATDESCRIPTOR),
+      1,
+      PFD_DRAW_TO_WINDOW |
+      PFD_SUPPORT_OPENGL |
+      PFD_DOUBLEBUFFER,
+      PFD_TYPE_RGBA,
+      32,
+      0,0,0,0,0,0,
+      0,
+      0,
+      0,
+      0,0,0,0,
+      24, // depth
+      8,  // stencil
+      0,
+      PFD_MAIN_PLANE,
+      0,
+      0,0,0
     };
 
     int pf = ChoosePixelFormat(win32.dc, &pfd);
-    if (pf == 0) {
-      fprintf(stderr, "[window] win32: Unable to choose Pixel Format!!!\n");
+    if (!pf) {
+      log_error(LOG_WIN, "Unable to choose Pixel Format");
       return UNKNOWNFAILURE;
     }
 
-    if (SetPixelFormat(win32.dc, pf, &pfd) == FALSE) {
-      fprintf(stderr, "[window] win32: Unable to set Pixel Format!!!\n");
+    if (!SetPixelFormat(win32.dc, pf, &pfd)) {
+      log_error(LOG_WIN, "Unable to set Pixel Format");
       return UNKNOWNFAILURE;
     }
 
+    // do we need to create a specific context?
+    if (hintmem.glvmajor > 0 && hintmem.glvminor >= 0) {
+      // create temp context for loading wglCreateContextAttribsARB
+      HGLRC temp = nullptr;
+      if (!win32::wglCreateContextAttribsARB) {
+        temp = wglCreateContext(win32.dc);
+        if (!temp) {
+          log_error(LOG_WIN, "Unable to create temporary WGL Context");
+          return CREATIONFAILED;
+        }
+
+        if (!wglMakeCurrent(win32.dc, temp)) {
+          log_error(LOG_WIN, "Unable to make temporary current Render Context\n");
+          return UNKNOWNFAILURE;
+        }
+
+        win32::load_wgl_create_context();
+
+        if (!win32::wglCreateContextAttribsARB) {
+          log_error(LOG_WIN, "wglCreateContextAttribsARB not supported");
+          return UNSUPPORTED;
+        }
+      }
+
+      int attribs[] = {
+        WGL_CONTEXT_PROFILE_MASK_ARB,
+        WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+
+        WGL_CONTEXT_MAJOR_VERSION_ARB, hintmem.glvmajor,
+        WGL_CONTEXT_MINOR_VERSION_ARB, hintmem.glvminor,
+
+        #ifdef _DEBUG
+        WGL_CONTEXT_FLAGS_ARB,
+        WGL_CONTEXT_DEBUG_BIT_ARB,
+        #endif
+
+        0
+      };
+
+      // create now the real context with the right version
+
+      HGLRC modern = win32::wglCreateContextAttribsARB(win32.dc, 0, attribs);
+
+      if (!modern) {
+        log_error(LOG_WIN, "Failed to create OpenGL %i.%i context", hintmem.glvmajor, hintmem.glvminor);
+        return CREATIONFAILED;
+      }
+
+      // destroy and replace the temporary context
+      if (temp) {
+        wglMakeCurrent(nullptr, nullptr);
+        wglDeleteContext(temp);
+      }
+
+      if (!wglMakeCurrent(win32.dc, modern)) {
+        log_error(LOG_WIN, "Failed to activate modern context");
+        return UNKNOWNFAILURE;
+      }
+
+      win32.rc = modern;
+
+      return SUCCESS;
+    }
+
+    // create default context
     win32.rc = wglCreateContext(win32.dc);
     if (win32.rc == NULL) {
-      fprintf(stderr, "[window] win32: Unable to create WGL Context!!!\n");
+      log_error(LOG_WIN, "Unable to create WGL Context");
       return CREATIONFAILED;
     }
 
     if (wglMakeCurrent(win32.dc, win32.rc) == FALSE) {
-      fprintf(stderr, "[window] win32: Unable to make current Render Context!!!\n");
+      log_error(LOG_WIN, "Unable to make current Render Context");
       return UNKNOWNFAILURE;
     }
 
@@ -387,6 +493,15 @@ namespace window {
     size_event_callback temp = input.size_event;
     input.size_event = func;
     return temp;
+  }
+
+  void window::set_appname(const char* appname) noexcept {
+    hintmem.appname = appname;
+  }
+
+  void window::set_glversion(int major, int minor) noexcept {
+    hintmem.glvmajor = major;
+    hintmem.glvminor = minor;
   }
 
   backend window::get_backend() const noexcept {

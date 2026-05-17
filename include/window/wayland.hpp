@@ -13,6 +13,7 @@
 
   struct window_wl_data {
     ::window::input_data* input;
+    ::window::hint_data*  hintmem;
 
     wl_display*    display;
     wl_compositor* compositor;

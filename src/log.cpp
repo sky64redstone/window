@@ -1,5 +1,5 @@
-#include "include/log.hpp"
-#include "include/platform.hpp"
+#include "window/log.hpp"
+#include "window/platform.hpp"
 
 #include <cstdarg>
 #include <cstdio>

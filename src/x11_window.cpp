@@ -1,13 +1,25 @@
-#include "include/x11.hpp"
+#include "window/x11.hpp"
 
-#include <stdio.h> // printf for x11 error handler
 #include <time.h>  // for clock_gettime (for dbl clk events)
 
-#include "include/log.hpp"
+#include "window/log.hpp"
 
 namespace window {
 
   namespace x11 {
+    using glXCreateContextAttribsARBProc =
+      GLXContext(*)(
+        Display*, GLXFBConfig, GLXContext, Bool, const int*
+      );
+    inline glXCreateContextAttribsARBProc glXCreateContextAttribsARB = nullptr;
+
+    void load_create_context_attribs() {
+      if (glXCreateContextAttribsARB == nullptr) {
+        glXCreateContextAttribsARB = reinterpret_cast<glXCreateContextAttribsARBProc>(
+          glXGetProcAddress(reinterpret_cast<const GLubyte*>("glXCreateContextAttribsARB"))
+        );
+      }
+    }
 
     using glx_swap_interval_ext_proc = void(*)(Display*, GLXDrawable, int);
     inline glx_swap_interval_ext_proc glXSwapIntervalEXT = nullptr;
@@ -61,12 +73,62 @@ namespace window {
       int x = (sw - w) / 2;
       int y = (sh - h) / 2;
 
-      GLint glattr[] = {
-        GLX_RGBA, GLX_DEPTH_SIZE, 24,
-        GLX_DOUBLEBUFFER, None
-      };
+      GLXFBConfig fbConfig;
+      XVisualInfo* visual;
 
-      XVisualInfo* visual = glXChooseVisual(data.display, screen, glattr);
+      // do we need to create a specific context?
+      bool glv = data.hintmem->glvmajor > 0 && data.hintmem->glvminor >= 0;
+
+      if (glv) {
+        int fbAttribs[] = {
+          GLX_X_RENDERABLE, True,
+          GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
+          GLX_RENDER_TYPE, GLX_RGBA_BIT,
+          GLX_X_VISUAL_TYPE, GLX_TRUE_COLOR,
+
+          GLX_RED_SIZE,   8,
+          GLX_GREEN_SIZE, 8,
+          GLX_BLUE_SIZE,  8,
+          GLX_ALPHA_SIZE, 8,
+
+          GLX_DEPTH_SIZE, 24,
+          GLX_STENCIL_SIZE, 8,
+
+          GLX_DOUBLEBUFFER, True,
+          None
+        };
+
+        int fbCount;
+        GLXFBConfig* fbConfigs = glXChooseFBConfig(
+          data.display,
+          screen,
+          fbAttribs,
+          &fbCount
+        );
+
+        if (!fbConfigs) {
+          return window::UNSUPPORTED;
+        }
+
+        fbConfig = fbConfigs[0];
+
+        visual = glXGetVisualFromFBConfig(
+          data.display,
+          fbConfig
+        );
+
+        if (!visual) {
+          return window::CREATIONFAILED;
+        }
+
+      } else {
+        GLint glattr[] = {
+          GLX_RGBA, GLX_DEPTH_SIZE, 24,
+          GLX_DOUBLEBUFFER, None
+        };
+
+        visual = glXChooseVisual(data.display, screen, glattr);
+      }
 
       XSetWindowAttributes attr = {};
       attr.event_mask = ExposureMask | KeyPressMask |
@@ -100,16 +162,60 @@ namespace window {
 
       data.isopen = true;
 
-      data.context = glXCreateContext(data.display, visual, nullptr, GL_TRUE);
-      if (data.context == NULL) {
-        return window::CREATIONFAILED;
+      if (glv) {
+        load_create_context_attribs();
+
+        if (!glXCreateContextAttribsARB) {
+          return window::UNSUPPORTED;
+        }
+
+        int contextAttribs[] = {
+          GLX_CONTEXT_MAJOR_VERSION_ARB, data.hintmem->glvmajor,
+          GLX_CONTEXT_MINOR_VERSION_ARB, data.hintmem->glvminor,
+
+          GLX_CONTEXT_PROFILE_MASK_ARB,
+          GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
+
+          #ifdef DEBUG
+          GLX_CONTEXT_FLAGS_ARB,
+          GLX_CONTEXT_DEBUG_BIT_ARB,
+          #endif
+
+          None
+        };
+
+        data.context = glXCreateContextAttribsARB(
+          data.display,
+          fbConfig,
+          nullptr,
+          True,
+          contextAttribs
+        );
+
+        if (!data.context) {
+          return window::CREATIONFAILED;
+        }
+      } else {
+        data.context = glXCreateContext(data.display, visual, nullptr, GL_TRUE);
+        if (data.context == NULL) {
+          return window::CREATIONFAILED;
+        }
       }
+
       glXMakeCurrent(data.display, data.win, data.context);
 
       data.wmDelete = XInternAtom(data.display, "WM_DELETE_WINDOW", False);
       XSetWMProtocols(data.display, data.win, &data.wmDelete, 1);
 
       XMapWindow(data.display, data.win);
+
+      if (data.hintmem->appname) {
+        XClassHint class_hint{};
+        class_hint.res_name  = const_cast<char*>("window_api::window");
+        class_hint.res_class = const_cast<char*>(data.hintmem->appname);
+
+        XSetClassHint(data.display, data.win, &class_hint);
+      }
 
       XStoreName(data.display, data.win, title);
 

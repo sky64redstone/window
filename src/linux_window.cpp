@@ -1,13 +1,13 @@
-#include "include/window.hpp"
+#include "window/window.hpp"
 
 #include <cstring>
 
 #ifdef window_x11
-  #include "include/x11.hpp"
+  #include "window/x11.hpp"
 #endif
 
 #ifdef window_wl
-  #include "include/wayland.hpp"
+  #include "window/wayland.hpp"
 #endif
 
 namespace window {
@@ -20,15 +20,18 @@ namespace window {
 
   window::window() noexcept {
     input = {};
+    hintmem = {};
     #ifdef window_x11
       x11 = {};
       memset(&x11, 0, sizeof(x11));
-      x11.input    = &input;
+      x11.input   = &input;
+      x11.hintmem = &hintmem;
     #endif
     #ifdef window_wl
       wl = {};
       memset(&wl, 0, sizeof(wl));
-      wl.input        = &input;
+      wl.input   = &input;
+      wl.hintmem = &hintmem;
     #endif
   }
 
@@ -213,6 +216,15 @@ namespace window {
     #if defined(window_wl) && !defined(window_x11)
       return ::window::backend::WAYLAND;
     #endif
+  }
+
+  void window::set_appname(const char* appname) noexcept {
+    hintmem.appname = appname;
+  }
+  
+  void window::set_glversion(int major, int minor) noexcept {
+    hintmem.glvmajor = major;
+    hintmem.glvminor = minor;
   }
 
   void window::destroy() noexcept {

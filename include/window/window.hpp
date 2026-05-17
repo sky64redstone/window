@@ -13,12 +13,6 @@
   #endif
 
   namespace window {
-    enum backend {
-      WINDOWS,
-      X11,
-      WAYLAND
-    };
-
     class window_api window {
     public:
       #if defined(window_x11)
@@ -34,6 +28,7 @@
       #endif
 
       input_data input;
+      hint_data  hintmem;
 
     public:
       window() noexcept;
@@ -199,6 +194,26 @@
       size_event_callback   set_size_event(size_event_callback      func) noexcept;
 
       /*
+       * The appname is used for identifying all windows that belong 
+       * to an certain app. Using the default name, may impact user experience.
+       * Needs to be set before creating the window.
+       *
+       * NOTE: the pointer 'appname' has to be valid at all times when calling
+       *       a 'window::*create*' function.
+       *
+       * NOTE: window hint (data may be ignored by the operating system)
+       */
+      void set_appname(const char* appname) noexcept;
+
+      /*
+       * Specifies a desired opengl version.
+       * Needs to be set before creating the window.
+       *
+       * NOTE: window hint (data may be ignored by the operating system)
+       */
+      void set_glversion(int major, int minor) noexcept;
+
+      /*
        * Checks which window backend is being used. (usefull on linux)
        *
        * returns: window backend
@@ -207,6 +222,9 @@
 
       /*
        * Closes the window and destroyes all allocated resources.
+       *
+       * NOTE: Only destroyes operating system data.
+       *       It keeps input and hint configuration.
        */
       void destroy() noexcept;
     };
