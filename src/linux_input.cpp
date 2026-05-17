@@ -320,15 +320,15 @@ namespace window {
   #ifdef window_x11
     button_descriptor x11_os_to_button(int os_button) noexcept {
       switch (os_button) {
-        case 1:  return { BUTTON_NONE, "Left Mouse" };
-        case 2:  return { BUTTON_NONE, "Right Mouse" };
-        case 3:  return { BUTTON_NONE, "Middle Mouse" };
+        case 1:  return { BUTTON_LEFT, "Left Mouse" };
+        case 2:  return { BUTTON_RIGHT, "Right Mouse" };
+        case 3:  return { BUTTON_MIDDLE, "Middle Mouse" };
         case 4:  return { BUTTON_NONE, "Scroll Up" };
         case 5:  return { BUTTON_NONE, "Scroll Down" };
         case 6:  return { BUTTON_NONE, "Scroll Left" };
         case 7:  return { BUTTON_NONE, "Scroll Right" };
-        case 8:  return { BUTTON_NONE, "X1 Mouse" };
-        case 9:  return { BUTTON_NONE, "X2 Mouse" };
+        case 8:  return { BUTTON_X1, "X1 Mouse" };
+        case 9:  return { BUTTON_X2, "X2 Mouse" };
         default: return { BUTTON_NONE, "None" };
       }
     }
@@ -337,11 +337,11 @@ namespace window {
   #ifdef window_wl
     button_descriptor wl_os_to_button(int os_button) noexcept {
       switch (os_button) {
-        case BTN_LEFT:   return { BUTTON_NONE, "Left Mouse" };
-        case BTN_RIGHT:  return { BUTTON_NONE, "Right Mouse" };
-        case BTN_MIDDLE: return { BUTTON_NONE, "Middle Mouse" };
-        case BTN_SIDE:   return { BUTTON_NONE, "X1 Mouse" };
-        case BTN_EXTRA:  return { BUTTON_NONE, "X2 Mouse" };
+        case BTN_LEFT:   return { BUTTON_LEFT, "Left Mouse" };
+        case BTN_RIGHT:  return { BUTTON_RIGHT, "Right Mouse" };
+        case BTN_MIDDLE: return { BUTTON_MIDDLE, "Middle Mouse" };
+        case BTN_SIDE:   return { BUTTON_X1, "X1 Mouse" };
+        case BTN_EXTRA:  return { BUTTON_X2, "X2 Mouse" };
         default: return { BUTTON_NONE, "None" };
       }
     }

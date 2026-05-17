@@ -140,7 +140,7 @@ namespace window {
     // TODO REMOVE AND DO IT IN E.G. winproc: NCCREATE
     load_win32_keys();
 
-    if (os_key < 0 || os_key > sizeof(win32_keycodes) / sizeof(win32_keycodes[0])) {
+    if (os_key < 0 || os_key >= sizeof(win32_keycodes) / sizeof(win32_keycodes[0])) {
       return win32_keycodes[0];
     }
 
@@ -165,7 +165,7 @@ namespace window {
     // TODO REMOVE AND DO IT IN E.G. winproc: NCCREATE
     load_win32_buttons();
 
-    if (os_button < 0 || os_button > sizeof(win32_buttoncodes) / sizeof(win32_buttoncodes[0])) {
+    if (os_button < 0 || os_button >= sizeof(win32_buttoncodes) / sizeof(win32_buttoncodes[0])) {
       return win32_buttoncodes[0];
     }
 

@@ -30,7 +30,6 @@ if (window_wl)
   )
 
   if (window_no_pkg)
-    message(STATUS "PkgConfig disabled")
     target_link_libraries(window
       PUBLIC
         wayland-client EGL
@@ -38,8 +37,6 @@ if (window_wl)
         xkbcommon
     )
   else()
-    message(STATUS "PkgConfig enabled")
-    find_package(PkgConfig REQUIRED)
     pkg_check_modules(DEPS REQUIRED IMPORTED_TARGET
       wayland-client egl
       wayland-egl

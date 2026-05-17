@@ -22,6 +22,14 @@ dependent_option(window_win32 "Enable win32 support" ON "WIN32" OFF)
 dependent_option(window_x11   "Enable x11 support"   ON "UNIX"  OFF)
 dependent_option(window_wl    "Enable wl support"    ON "UNIX"  OFF)
 
+
+if (window_no_pkg)
+  message(STATUS "PkgConfig disabled")
+else()
+  message(STATUS "PkgConfig enabled")
+  find_package(PkgConfig REQUIRED)
+endif()
+
 if (window_win32)
   message(STATUS "Win32 support enabled")
 endif()
@@ -33,7 +41,16 @@ if (window_wl)
 
   find_program(WAYLAND_SCANNER wayland-scanner REQUIRED)
 
-  set(WAYLAND_PROTOCOL_DIR /usr/share/wayland-protocols)
+  if (window_no_pkg)
+    set(WAYLAND_PROTOCOL_DIR "/usr/share/wayland-protocols" CACHE PATH "Wayland protocols directory")
+
+  else()
+    execute_process(
+        COMMAND pkg-config --variable=pkgdatadir wayland-protocols
+        OUTPUT_VARIABLE WAYLAND_PROTOCOL_DIR
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+  endif()
 
   set(XDG_SHELL_XML
       ${WAYLAND_PROTOCOL_DIR}/stable/xdg-shell/xdg-shell.xml)
