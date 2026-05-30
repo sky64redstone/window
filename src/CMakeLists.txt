@@ -2,7 +2,11 @@ add_library(window SHARED
   "log.cpp"
 )
 
-target_include_directories(window PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories(window
+  PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
 
 target_compile_definitions(window PRIVATE window_build)
 
