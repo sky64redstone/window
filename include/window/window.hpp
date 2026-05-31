@@ -198,9 +198,6 @@
        * to an certain app. Using the default name, may impact user experience.
        * Needs to be set before creating the window.
        *
-       * NOTE: the pointer 'appname' has to be valid at all times when calling
-       *       a 'window::*create*' function.
-       *
        * NOTE: window hint (data may be ignored by the operating system)
        */
       void set_appname(const char* appname) noexcept;

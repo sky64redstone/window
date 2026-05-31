@@ -250,7 +250,7 @@ namespace window {
         .hCursor       = LoadCursor(inst, IDC_ARROW),
         .hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1),
         .lpszMenuName  = nullptr,
-        .lpszClassName = hintmem.appname ? hintmem.appname : "window_api::window"
+        .lpszClassName = hintmem.appname.empty() ? "window_api::window" : hintmem.appname.c_str()
       };
 
       classAtom = RegisterClassA(&wcls);
@@ -345,11 +345,13 @@ namespace window {
     int pf = ChoosePixelFormat(win32.dc, &pfd);
     if (!pf) {
       log_error(LOG_WIN, "Unable to choose Pixel Format");
+      ReleaseDC(win32.win, win32.dc);
       return UNKNOWNFAILURE;
     }
 
     if (!SetPixelFormat(win32.dc, pf, &pfd)) {
       log_error(LOG_WIN, "Unable to set Pixel Format");
+      ReleaseDC(win32.win, win32.dc);
       return UNKNOWNFAILURE;
     }
 
@@ -361,11 +363,14 @@ namespace window {
         temp = wglCreateContext(win32.dc);
         if (!temp) {
           log_error(LOG_WIN, "Unable to create temporary WGL Context");
+          ReleaseDC(win32.win, win32.dc);
           return CREATIONFAILED;
         }
 
         if (!wglMakeCurrent(win32.dc, temp)) {
-          log_error(LOG_WIN, "Unable to make temporary current Render Context\n");
+          log_error(LOG_WIN, "Unable to make temporary current Render Context");
+          wglDeleteContext(temp);
+          ReleaseDC(win32.win, win32.dc);
           return UNKNOWNFAILURE;
         }
 
@@ -373,6 +378,9 @@ namespace window {
 
         if (!win32::wglCreateContextAttribsARB) {
           log_error(LOG_WIN, "wglCreateContextAttribsARB not supported");
+          wglMakeCurrent(NULL, NULL)
+          wglDeleteContext(temp);
+          ReleaseDC(win32.win, win32.dc);
           return UNSUPPORTED;
         }
       }
@@ -398,6 +406,7 @@ namespace window {
 
       if (!modern) {
         log_error(LOG_WIN, "Failed to create OpenGL %i.%i context", hintmem.glvmajor, hintmem.glvminor);
+        ReleaseDC(win32.win, win32.dc);
         return CREATIONFAILED;
       }
 
@@ -409,6 +418,8 @@ namespace window {
 
       if (!wglMakeCurrent(win32.dc, modern)) {
         log_error(LOG_WIN, "Failed to activate modern context");
+        wglDeleteContext(modern);
+        ReleaseDC(win32.win, win32.dc);
         return UNKNOWNFAILURE;
       }
 
@@ -421,11 +432,14 @@ namespace window {
     win32.rc = wglCreateContext(win32.dc);
     if (win32.rc == NULL) {
       log_error(LOG_WIN, "Unable to create WGL Context");
+      ReleaseDC(win32.win, win32.dc);
       return CREATIONFAILED;
     }
 
-    if (wglMakeCurrent(win32.dc, win32.rc) == FALSE) {
+    if (!wglMakeCurrent(win32.dc, win32.rc)) {
       log_error(LOG_WIN, "Unable to make current Render Context");
+      wglDeleteContext(win32.rc);
+      ReleaseDC(win32.win, win32.dc);
       return UNKNOWNFAILURE;
     }
 
@@ -496,7 +510,7 @@ namespace window {
   }
 
   void window::set_appname(const char* appname) noexcept {
-    hintmem.appname = appname;
+    hintmem.appname = appname ? appname : "";
   }
 
   void window::set_glversion(int major, int minor) noexcept {
@@ -511,14 +525,15 @@ namespace window {
   void window::destroy() noexcept {
     if (win32.rc != nullptr) {
       wglDeleteContext(win32.rc);
-      //win32.rc = nullptr;
+      win32.rc = nullptr;
     }
     if (win32.dc != nullptr) {
       ReleaseDC(win32.win, win32.dc);
-      //win32.dc = nullptr;
+      win32.dc = nullptr;
     }
     if (IsWindow(win32.win)) {
       DestroyWindow(win32.win);
+      win32.win = nullptr;
     }
     win32.isopen = false;
   }

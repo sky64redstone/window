@@ -404,8 +404,8 @@ namespace window::wl {
     }
     xdg_surface_set_window_geometry(data.xsurface, 0, 0, w, h);
     xdg_toplevel_set_title(data.xtoplevel, title);
-    if (data.hintmem->appname) {
-      xdg_toplevel_set_app_id(data.xtoplevel, data.hintmem->appname);
+    if (!data.hintmem->appname.empty()) {
+      xdg_toplevel_set_app_id(data.xtoplevel, data.hintmem->appname.c_str());
     }
     wl_surface_commit(data.surface);
 

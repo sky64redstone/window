@@ -60,6 +60,7 @@ namespace window {
 
       if (glXQueryExtension(data.display, nullptr, nullptr) != True) {
         ::window::log_error(::window::LOG_X11, "GLX isn't supported on this device");
+        destroy(data);
         return window::UNSUPPORTED;
       }
 
@@ -118,6 +119,7 @@ namespace window {
         );
 
         if (!visual) {
+          destroy(data);
           return window::CREATIONFAILED;
         }
 
@@ -157,15 +159,15 @@ namespace window {
       XSync(data.display, False);
 
       if (error_code != 0) {
+        destroy(data);
         return window::CREATIONFAILED;
       }
-
-      data.isopen = true;
 
       if (glv) {
         load_create_context_attribs();
 
         if (!glXCreateContextAttribsARB) {
+          destroy(data);
           return window::UNSUPPORTED;
         }
 
@@ -193,11 +195,13 @@ namespace window {
         );
 
         if (!data.context) {
+          destroy(data);
           return window::CREATIONFAILED;
         }
       } else {
         data.context = glXCreateContext(data.display, visual, nullptr, GL_TRUE);
         if (data.context == NULL) {
+          destroy(data);
           return window::CREATIONFAILED;
         }
       }
@@ -209,10 +213,12 @@ namespace window {
 
       XMapWindow(data.display, data.win);
 
-      if (data.hintmem->appname) {
+      data.isopen = true;
+
+      if (!data.hintmem->appname.empty()) {
         XClassHint class_hint{};
         class_hint.res_name  = const_cast<char*>("window_api::window");
-        class_hint.res_class = const_cast<char*>(data.hintmem->appname);
+        class_hint.res_class = const_cast<char*>(data.hintmem->appname.c_str());
 
         XSetClassHint(data.display, data.win, &class_hint);
       }

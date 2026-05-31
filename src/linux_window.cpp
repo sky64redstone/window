@@ -219,7 +219,7 @@ namespace window {
   }
 
   void window::set_appname(const char* appname) noexcept {
-    hintmem.appname = appname;
+    hintmem.appname = appname ? appname : "";
   }
   
   void window::set_glversion(int major, int minor) noexcept {

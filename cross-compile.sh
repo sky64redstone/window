@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ "${1:-}" = "clean" ]]; then
+  echo "Cleaning up..."
+  rm -rf build-windows
+  exit 0
+fi
+
 echo "[1/4] Preparing build directory..."
 mkdir -p build-windows
 
