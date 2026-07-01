@@ -250,7 +250,9 @@ namespace window {
         .hCursor       = LoadCursor(inst, IDC_ARROW),
         .hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1),
         .lpszMenuName  = nullptr,
-        .lpszClassName = hintmem.appname.empty() ? "window_api::window" : hintmem.appname.c_str()
+        .lpszClassName = hintmem.appname.empty() ?
+                           "window_api::window" :
+                           hintmem.appname.c_str()
       };
 
       classAtom = RegisterClassA(&wcls);
@@ -378,7 +380,7 @@ namespace window {
 
         if (!win32::wglCreateContextAttribsARB) {
           log_error(LOG_WIN, "wglCreateContextAttribsARB not supported");
-          wglMakeCurrent(NULL, NULL)
+          wglMakeCurrent(NULL, NULL);
           wglDeleteContext(temp);
           ReleaseDC(win32.win, win32.dc);
           return UNSUPPORTED;
