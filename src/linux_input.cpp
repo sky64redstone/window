@@ -321,8 +321,8 @@ namespace window {
     button_descriptor x11_os_to_button(int os_button) noexcept {
       switch (os_button) {
         case 1:  return { BUTTON_LEFT, "Left Mouse" };
-        case 2:  return { BUTTON_RIGHT, "Right Mouse" };
-        case 3:  return { BUTTON_MIDDLE, "Middle Mouse" };
+        case 2:  return { BUTTON_MIDDLE, "Middle Mouse" };
+        case 3:  return { BUTTON_RIGHT, "Right Mouse" };
         case 4:  return { BUTTON_NONE, "Scroll Up" };
         case 5:  return { BUTTON_NONE, "Scroll Down" };
         case 6:  return { BUTTON_NONE, "Scroll Left" };
