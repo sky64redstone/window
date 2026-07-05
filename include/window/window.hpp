@@ -258,14 +258,66 @@
        */
       result set_gfx_backend(graphics_backend backend) noexcept;
 
+      /*
+       * Returns the pointer to the framebuffer. Pixel encoding is ARGB.
+       * May be nullptr if make_gfx_context was never called.
+       * This function should be used to render pixels on the screen.
+       * You can compute the offset of a pixel with this:
+       * y_offset = (y * framebuffer_stride()) / sizeof(uint32_t);
+       * offset = y_offset + x;
+       *
+       * returns: pointer to framebuffer
+       *
+       * SEE: framebuffer_width, framebuffer_height, framebuffer_stride
+       */
       std::uint32_t* framebuffer_pixels() noexcept;
 
+      /*
+       * Returns the pointer to the framebuffer. Pixel encoding is ARGB.
+       * May be nullptr if make_gfx_context was never called.
+       * This function should be used to read pixels in the current framebuffer.
+       * You can compute the offset of a pixel with this:
+       * y_offset = (y * framebuffer_stride()) / sizeof(uint32_t);
+       * offset = y_offset + x;
+       *
+       * returns: pointer to framebuffer
+       *
+       * SEE: framebuffer_width, framebuffer_height, framebuffer_stride
+       */
       const std::uint32_t* framebuffer_pixels() const noexcept;
 
+      /*
+       * Returns the width of the framebuffer.
+       *
+       * returns: framebuffer width in pixels (uint32_t)
+       *
+       * NOTE: Should not be used to compute a y offset in the buffer.
+       *       Instead use the framebuffer_stride function.
+       *
+       * SEE: framebuffer_height, framebuffer_stride
+       */
       int framebuffer_width() const noexcept;
 
+      /*
+       * Returns the height of the framebuffer.
+       *
+       * returns: framebuffer height in pixels
+       *
+       * SEE: framebuffer_width, framebuffer_stride
+       */
       int framebuffer_height() const noexcept;
 
+      /*
+       * Returns the stride of the framebuffer. The stride is the number of
+       * bytes between the start of one row and the start of the next.
+       * To compute the offset of a row use this formular:
+       * y_offset = (y * framebuffer_stride()) / sizeof(uint32_t)
+       * By default this is set to framebuffer_width() * sizeof(uint32_t).
+       *
+       * returns: framebuffer width in pixels (uint32_t)
+       *
+       * SEE: framebuffer_width, framebuffer_height
+       */
       int framebuffer_stride() const noexcept;
 
       /*
