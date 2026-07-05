@@ -665,6 +665,7 @@ namespace window {
 
           image->data = nullptr;
           XDestroyImage(image);
+          delete[] scaled;
 
           return window::SUCCESS;
         }
