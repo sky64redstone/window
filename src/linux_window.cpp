@@ -36,6 +36,7 @@ namespace window {
       memset(&wl, 0, sizeof(wl));
       wl.input   = &input;
       wl.hintmem = &hintmem;
+      wl.fb      = &fb;
     #endif
   }
 
@@ -76,7 +77,7 @@ namespace window {
   }
 
   result window::set_size(int width, int height) noexcept {
-      #if defined(window_wl) && defined(window_x11)
+    #if defined(window_wl) && defined(window_x11)
       // check if wayland or x11 is running
       if (is_valid_wl(wl)) {
         return wl::set_size(wl, width, height);
@@ -129,6 +130,20 @@ namespace window {
     #endif
     #if defined(window_wl) && !defined(window_x11)
       return wl::make_gfx_context(wl);
+    #endif
+  }
+
+  result window::resize_framebuffer(int width, int height) noexcept {
+    #if defined(window_wl) && defined(window_x11)
+      if (is_valid_wl(wl)) {
+        return wl::resize_framebuffer(wl, width, height);
+      }
+    #endif
+    #ifdef window_x11
+      return x11::resize_framebuffer(x11, width, height);
+    #endif
+    #if defined(window_wl) && !defined(window_x11)
+      return wl::resize_framebuffer(wl, width, height);
     #endif
   }
 

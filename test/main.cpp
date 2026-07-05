@@ -1,7 +1,6 @@
 #include <window/window.hpp>
 
-#include <stdio.h>
-#include <stdlib.h>
+#include <cstdio>
 
 static void key_event(bool down, window::key_descriptor& k, void* data) noexcept {
   if (down)
@@ -101,25 +100,30 @@ int main() {
     // opengl setup
     glViewport(0, 0, 300, 200);
     glClearColor(0.f, 0.f, 0.f, 1.f);
+  } else {
+    const int w = win.framebuffer_width();
+    const int h = win.framebuffer_height();
+    auto fb = win.framebuffer_pixels();
+
+    for (int y = 0; y < h; y++) {
+      for (int x = 0; x < w; x++) {
+        float u = (w > 1) ? (float)x/(w-1) : 0.0f;
+        float v = (h > 1) ? (float)y/(h-1) : 0.0f;
+        fb[x + y * win.framebuffer_stride()] =
+          0xFF000000u |
+          (((uint32_t)(255*(u*0.9f+0.1f)) & 255u) << 16) |
+          (((uint32_t)(255*(v*0.9f+0.1f)) & 255u) << 8) |
+          ((uint32_t)(255*(1.0f-u)) & 255u);
+      }
+    }
   }
+  win.swap_buffers();
 
   // main loop
   while (win.is_open()) {
     win.poll_events();
     if (use_opengl) {
       glClear(GL_COLOR_BUFFER_BIT);
-    } else {
-      for (int x = 0; x < win.framebuffer_width() >> 2; x++) {
-        for (int y = 0; y < win.framebuffer_height() >> 2; y++) {
-          win.framebuffer_pixels()[x + y * win.framebuffer_stride()] = 0xFFFFFFFF;
-        }
-      }
-      for (int i = 0; i < win.framebuffer_width(); i++) {
-        win.framebuffer_pixels()[i] = 0xFFFF0000;
-      }
-      for (int i = 0; i < win.framebuffer_height(); i++) {
-        win.framebuffer_pixels()[i * win.framebuffer_width()] = 0xFFFF0000;
-      }
     }
     win.swap_buffers();
   }
