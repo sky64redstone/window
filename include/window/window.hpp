@@ -29,6 +29,7 @@
 
       input_data input;
       hint_data  hintmem;
+      framebuffer_data fb;
 
     public:
       window() noexcept;
@@ -93,20 +94,44 @@
       result poll_events() noexcept;
 
       /*
-       * Creates an opengl context for the current window.
+       * Creates a graphics context for the current window.
+       * The type of the context is determined by the current set
+       * graphics backend.
        * 
        * returns: result::SUCCESS on success, otherwise failure
        *
-       * NOTE: this function should be called before any opengl function
+       * NOTE: If the gfx backend is set to GRAPHICS_FRAMEBUFFER, then
+       *       this creates the framebuffer with the current window size.
+       *       This function should be called before any graphics function
+       *
+       * SEE: set_gfx_backend(graphics_backend)
+       *      get_gfx_backend()
        */
-      result make_opengl_context() noexcept;
+      result make_gfx_context() noexcept;
 
       /*
-       * Swaps the front and back buffer for the current window with opengl.
+       * Resizes the current framebuffer to a specified size.
+       * The size is messured in pixels.
+       * If width or height is set to zero, the current window width or
+       * height is used, respectively.
        *
        * returns: result::SUCCESS on success, otherwise failure
        *
-       * NOTE: make_opengl_context should be called before this one
+       * NOTE: this function overrides any data on the current framebuffer
+       */
+      result resize_framebuffer(int width, int height) noexcept;
+
+      /*
+       * With OpenGL:
+       * Swaps the front and back buffer for the current window with opengl.
+       *
+       * With Framebuffer:
+       * Renders the current framebuffer on the window.
+       *
+       * returns: result::SUCCESS on success, otherwise failure
+       *
+       * NOTE: make_opengl_context or make_framebuffer_context
+       *       should be called before this one
        */
       result swap_buffers() const noexcept;
 
@@ -216,6 +241,32 @@
        * returns: window backend
        */
       backend get_backend() const noexcept;
+
+      /*
+       * Returns the currently used graphics backend
+       *
+       * returns: graphics backend
+       */
+      graphics_backend get_gfx_backend() const noexcept;
+
+      /*
+       * Sets the graphics backend. The default is GRAPHICS_OPENGL.
+       *
+       * returns: result::SUCCESS on success, otherwise failure
+       *
+       * NOTE: This function will fail if a current graphics context exists.
+       */
+      result set_gfx_backend(graphics_backend backend) noexcept;
+
+      std::uint32_t* framebuffer_pixels() noexcept;
+
+      const std::uint32_t* framebuffer_pixels() const noexcept;
+
+      int framebuffer_width() const noexcept;
+
+      int framebuffer_height() const noexcept;
+
+      int framebuffer_stride() const noexcept;
 
       /*
        * Closes the window and destroyes all allocated resources.

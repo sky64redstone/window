@@ -9,6 +9,7 @@
     #define window_os_win32
   #endif
 
+  #include "graphics.hpp"
   #include "input.hpp"
   #include "hints.hpp"
 

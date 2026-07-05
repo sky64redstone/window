@@ -10,6 +10,8 @@
   #include "window/wayland.hpp"
 #endif
 
+#include "window/log.hpp"
+
 namespace window {
 
   #if defined(window_x11) && defined(window_wl)
@@ -21,11 +23,13 @@ namespace window {
   window::window() noexcept {
     input = {};
     hintmem = {};
+    fb = {};
     #ifdef window_x11
       x11 = {};
       memset(&x11, 0, sizeof(x11));
       x11.input   = &input;
       x11.hintmem = &hintmem;
+      x11.fb      = &fb;
     #endif
     #ifdef window_wl
       wl = {};
@@ -114,17 +118,17 @@ namespace window {
     #endif
   }
 
-  result window::make_opengl_context() noexcept {
+  result window::make_gfx_context() noexcept {
     #if defined(window_wl) && defined(window_x11)
       if (is_valid_wl(wl)) {
-        return wl::make_opengl_context(wl);
+        return wl::make_gfx_context(wl);
       }
     #endif
     #ifdef window_x11
-      return x11::make_opengl_context(x11);
+      return x11::make_gfx_context(x11);
     #endif
     #if defined(window_wl) && !defined(window_x11)
-      return wl::make_opengl_context(wl);
+      return wl::make_gfx_context(wl);
     #endif
   }
 
@@ -225,6 +229,51 @@ namespace window {
   void window::set_glversion(int major, int minor) noexcept {
     hintmem.glvmajor = major;
     hintmem.glvminor = minor;
+  }
+
+  result window::set_gfx_backend(graphics_backend backend) noexcept {
+    if (this->is_open()) {
+      #if defined(window_wl) && defined(window_x11)
+        if (is_valid_wl(wl)) {
+          ::window::log_error(::window::LOG_WAYLAND, "window is already created");
+        } else {
+          ::window::log_error(::window::LOG_X11, "window is already created");
+        }
+      #else
+        #ifdef window_x11
+          ::window::log_error(::window::LOG_X11, "window is already created");
+        #elif defined(window_wl)
+          ::window::log_error(::window::LOG_WAYLAND, "window is already created");
+        #endif
+      #endif
+      return ::window::ALREADYEXISTS;
+    }
+    hintmem.gfx_backend = backend;
+    return ::window::SUCCESS;
+  }
+
+  graphics_backend window::get_gfx_backend() const noexcept {
+    return hintmem.gfx_backend;
+  }
+
+  std::uint32_t* window::framebuffer_pixels() noexcept {
+    return fb.pixels;
+  }
+
+  const std::uint32_t* window::framebuffer_pixels() const noexcept {
+    return fb.pixels;
+  }
+
+  int window::framebuffer_width() const noexcept {
+    return fb.width;
+  }
+
+  int window::framebuffer_height() const noexcept {
+    return fb.height;
+  }
+
+  int window::framebuffer_stride() const noexcept {
+    return fb.stride;
   }
 
   void window::destroy() noexcept {

@@ -56,20 +56,37 @@ static void size_event(int w, int h, void* data) noexcept {
 }
 
 int main() {
+  bool use_opengl = false;
+
   window::window win{};
 
   // creating the opengl window
   win.set_appname("myappname");
-  win.set_glversion(3,3); // should be called before every create function
+
+  if (use_opengl) {
+    win.set_glversion(3,3); // should be called before every create function
+    win.set_gfx_backend(::window::GRAPHICS_OPENGL); //  default/not required
+  } else {
+    win.set_gfx_backend(::window::GRAPHICS_FRAMEBUFFER);
+  }
   win.create(300, 200, "TEST! :)");
-  win.make_opengl_context();
+  win.make_gfx_context();
 
   printf("Backend: %s\n", (
     win.get_backend() == window::WAYLAND ? "Wayland" : (
       win.get_backend() == window::X11 ? "X11" : "Win32")
     )
   );
-  printf("OpenGL: %s\n", glGetString(GL_VERSION));
+
+  printf("GFX Backend: %s\n",
+    win.get_gfx_backend() == window::GRAPHICS_OPENGL ? "OpenGL" :
+    win.get_gfx_backend() == window::GRAPHICS_FRAMEBUFFER ? "Framebuffer" :
+    "Unknown"
+  );
+
+  if (use_opengl) {
+    printf("OpenGL: %s\n", glGetString(GL_VERSION));
+  }
 
   // setting event callbacks up
   win.set_key_event(key_event);
@@ -80,14 +97,30 @@ int main() {
   win.set_mouse_event(mouse_event);
   win.set_size_event(size_event);
   
-  // opengl setup
-  glViewport(0, 0, 300, 200);
-  glClearColor(0.f, 0.f, 0.f, 1.f);
+  if (use_opengl) {
+    // opengl setup
+    glViewport(0, 0, 300, 200);
+    glClearColor(0.f, 0.f, 0.f, 1.f);
+  }
 
   // main loop
   while (win.is_open()) {
     win.poll_events();
-    glClear(GL_COLOR_BUFFER_BIT);
+    if (use_opengl) {
+      glClear(GL_COLOR_BUFFER_BIT);
+    } else {
+      for (int x = 0; x < win.framebuffer_width() >> 2; x++) {
+        for (int y = 0; y < win.framebuffer_height() >> 2; y++) {
+          win.framebuffer_pixels()[x + y * win.framebuffer_stride()] = 0xFFFFFFFF;
+        }
+      }
+      for (int i = 0; i < win.framebuffer_width(); i++) {
+        win.framebuffer_pixels()[i] = 0xFFFF0000;
+      }
+      for (int i = 0; i < win.framebuffer_height(); i++) {
+        win.framebuffer_pixels()[i * win.framebuffer_width()] = 0xFFFF0000;
+      }
+    }
     win.swap_buffers();
   }
   win.destroy();
