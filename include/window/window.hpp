@@ -133,7 +133,7 @@
        * NOTE: make_opengl_context or make_framebuffer_context
        *       should be called before this one
        */
-      result swap_buffers() const noexcept;
+      result swap_buffers() noexcept;
 
       /*
        * Sets the opengl swap interval for this window.
@@ -263,7 +263,7 @@
        * May be nullptr if make_gfx_context was never called.
        * This function should be used to render pixels on the screen.
        * You can compute the offset of a pixel with this:
-       * y_offset = (y * framebuffer_stride()) / sizeof(uint32_t);
+       * y_offset = (y * framebuffer_stride()) / sizeof(uint32_t)
        * offset = y_offset + x;
        *
        * returns: pointer to framebuffer
@@ -277,7 +277,7 @@
        * May be nullptr if make_gfx_context was never called.
        * This function should be used to read pixels in the current framebuffer.
        * You can compute the offset of a pixel with this:
-       * y_offset = (y * framebuffer_stride()) / sizeof(uint32_t);
+       * y_offset = (y * framebuffer_stride()) / sizeof(uint32_t)
        * offset = y_offset + x;
        *
        * returns: pointer to framebuffer

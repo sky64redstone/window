@@ -71,18 +71,16 @@ int main() {
   win.create(300, 200, "TEST! :)");
   win.make_gfx_context();
 
-  printf("Backend: %s\n", (
+  printf("Win Backend: %s\n", (
     win.get_backend() == window::WAYLAND ? "Wayland" : (
       win.get_backend() == window::X11 ? "X11" : "Win32")
     )
   );
-
   printf("GFX Backend: %s\n",
     win.get_gfx_backend() == window::GRAPHICS_OPENGL ? "OpenGL" :
     win.get_gfx_backend() == window::GRAPHICS_FRAMEBUFFER ? "Framebuffer" :
     "Unknown"
   );
-
   if (use_opengl) {
     printf("OpenGL: %s\n", glGetString(GL_VERSION));
   }
@@ -103,13 +101,14 @@ int main() {
   } else {
     const int w = win.framebuffer_width();
     const int h = win.framebuffer_height();
+    const int offset = win.framebuffer_stride() / sizeof(std::uint32_t);
     auto fb = win.framebuffer_pixels();
 
     for (int y = 0; y < h; y++) {
       for (int x = 0; x < w; x++) {
         float u = (w > 1) ? (float)x/(w-1) : 0.0f;
         float v = (h > 1) ? (float)y/(h-1) : 0.0f;
-        fb[x + y * win.framebuffer_stride()] =
+        fb[x + y * offset] =
           0xFF000000u |
           (((uint32_t)(255*(u*0.9f+0.1f)) & 255u) << 16) |
           (((uint32_t)(255*(v*0.9f+0.1f)) & 255u) << 8) |

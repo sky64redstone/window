@@ -4,10 +4,55 @@
 #include <sys/mman.h> // mmap
 #include <unistd.h>   // close
 #include <time.h>     // for clock_gettime (for dbl clk events)
+#include <errno.h>
+#include <fcntl.h>
 
 #include "window/log.hpp"
 
 namespace window::wl {
+  /* Credit: https://wayland-book.com/surfaces/shared-memory.html */
+  static void randname(char* buf) {
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    long r = ts.tv_nsec;
+    for (int i = 0; i < 6; ++i) {
+      buf[i] = 'A'+(r&15)+(r&16)*2;
+      r >>= 5;
+    }
+  }
+
+  /* Credit: https://wayland-book.com/surfaces/shared-memory.html */
+  static int create_shm_file(void) {
+    int retries = 100;
+    do {
+      char name[] = "/wl_shm-XXXXXX";
+      randname(name + sizeof(name) - 7);
+      --retries;
+      int fd = shm_open(name, O_RDWR | O_CREAT | O_EXCL, 0600);
+      if (fd >= 0) {
+        shm_unlink(name);
+        return fd;
+      }
+    } while (retries > 0 && errno == EEXIST);
+    return -1;
+  }
+
+  /* Credit: https://wayland-book.com/surfaces/shared-memory.html */
+  int allocate_shm_file(size_t size) {
+    int fd = create_shm_file();
+    if (fd < 0)
+      return -1;
+    int ret;
+    do {
+      ret = ftruncate(fd, size);
+    } while (ret < 0 && errno == EINTR);
+    if (ret < 0) {
+      close(fd);
+      return -1;
+    }
+    return fd;
+  }
+
   const char* eglGetErrorString(EGLint error) {
     switch (error) {
     case EGL_SUCCESS:
@@ -53,8 +98,11 @@ namespace window::wl {
     .ping = xdg_wm_base_ping,
   };
 
-  static void registry_handler(void* data, wl_registry* registry,
-                               uint32_t id, const char* interface, uint32_t version) {
+  static void registry_handler(
+    void* data, wl_registry* registry,
+    uint32_t id, const char* interface, uint32_t version
+  ) {
+
     if (data != nullptr) {
       window_wl_data* win_data = static_cast<window_wl_data*>(data);
       if (strcmp(interface, wl_compositor_interface.name) == 0) {
@@ -74,9 +122,13 @@ namespace window::wl {
         win_data->decoration_manager = static_cast<zxdg_decoration_manager_v1*>(
           wl_registry_bind(registry, id, &zxdg_decoration_manager_v1_interface, 1)
         );
+      } else if (strcmp(interface, wl_shm_interface.name) == 0) {
+        win_data->shm = static_cast<wl_shm*>(
+          wl_registry_bind(registry, id, &wl_shm_interface, 1)
+        );
       }
     } else {
-      ::window::log_error(window::LOG_WAYLAND, "Received nullpointer data");
+      ::window::log_error(window::LOG_WL, "Received nullpointer data");
     }
   }
 
@@ -97,8 +149,6 @@ namespace window::wl {
       0, 0,
       win->width,
       win->height);
-
-    wl_surface_commit(win->surface);
   }
   
   static const xdg_surface_listener xsurface_listener = {
@@ -149,7 +199,7 @@ namespace window::wl {
 
     char* map = (char*)mmap(NULL, size, PROT_READ, MAP_SHARED, fd, 0);
     if (map == MAP_FAILED) {
-      ::window::log_error(window::LOG_WAYLAND, "mmap failed");
+      ::window::log_error(window::LOG_WL, "mmap failed");
       close(fd);
       return;
     }
@@ -319,10 +369,22 @@ namespace window::wl {
     .axis_discrete = pointer_axis_discrete
   };
 
+  static void buffer_release(void* data, wl_buffer*) {
+    window_wl_data* win = static_cast<window_wl_data*>(data);
+
+    if (win->fb) {
+      win->buffer_busy = false;
+    }
+  }
+
+  static const wl_buffer_listener buffer_listener = {
+    .release = buffer_release
+  };
+
   ::window::result create_window(window_wl_data& data, int w, int h, const char* title) noexcept {
     data.display = wl_display_connect(NULL);
     if (data.display == nullptr) {
-      ::window::log_error(window::LOG_WAYLAND, "Failed to connect to wayland display");
+      ::window::log_error(window::LOG_WL, "Failed to connect to wayland display");
       destroy(data);
       return ::window::CONNECTIONFAILED;
     }
@@ -333,20 +395,20 @@ namespace window::wl {
     wl_display_roundtrip(data.display); // Needed to receive xdg_wm_base events
 
     if (data.compositor == nullptr) {
-      ::window::log_error(window::LOG_WAYLAND, "Missing required Wayland interfaces (compositor)");
+      ::window::log_error(window::LOG_WL, "Missing required Wayland interfaces (compositor)");
       destroy(data);
       return ::window::UNSUPPORTED;
     }
 
     if (data.xwm_base == nullptr) {
-      ::window::log_error(window::LOG_WAYLAND, "Missing required Wayland interfaces (xdg window manager base)");
+      ::window::log_error(window::LOG_WL, "Missing required Wayland interfaces (xdg window manager base)");
       destroy(data);
       return ::window::UNSUPPORTED;
     }
 
     data.surface = wl_compositor_create_surface(data.compositor);
     if (data.surface == nullptr) {
-      ::window::log_error(window::LOG_WAYLAND, "Failed to create surface");
+      ::window::log_error(window::LOG_WL, "Failed to create surface");
       destroy(data);
       return ::window::CREATIONFAILED;
     }
@@ -354,7 +416,7 @@ namespace window::wl {
     // Create xdg-surface and toplevel
     data.xsurface = xdg_wm_base_get_xdg_surface(data.xwm_base, data.surface);
     if (data.xsurface == nullptr) {
-      ::window::log_error(window::LOG_WAYLAND, "Failed to create xdg surface");
+      ::window::log_error(window::LOG_WL, "Failed to create xdg surface");
       destroy(data);
       return ::window::CREATIONFAILED;
     }
@@ -362,7 +424,7 @@ namespace window::wl {
 
     data.xtoplevel = xdg_surface_get_toplevel(data.xsurface);
     if (data.xtoplevel == nullptr) {
-      ::window::log_error(window::LOG_WAYLAND, "Failed to get xdg toplevel");
+      ::window::log_error(window::LOG_WL, "Failed to get xdg toplevel");
       destroy(data);
       return ::window::CREATIONFAILED;
     }
@@ -375,7 +437,7 @@ namespace window::wl {
       data.pointer = wl_seat_get_pointer(data.seat);
       wl_pointer_add_listener(data.pointer, &pointer_listener, &data);
     } else {
-      ::window::log_error(window::LOG_WAYLAND, "Failed to get wl seat");
+      ::window::log_error(window::LOG_WL, "Failed to get wl seat");
       destroy(data);
       return ::window::CREATIONFAILED;
     }
@@ -388,7 +450,7 @@ namespace window::wl {
       );
 
       if (data.decoration == nullptr) {
-        ::window::log_error(window::LOG_WAYLAND, "Failed to create decoration");
+        ::window::log_error(window::LOG_WL, "Failed to create decoration");
         // exit here because decoration manager is supported
         destroy(data);
         return ::window::CREATIONFAILED;
@@ -399,19 +461,33 @@ namespace window::wl {
         ZXDG_TOPLEVEL_DECORATION_V1_MODE_SERVER_SIDE
       );
     } else {
-      ::window::log_warning(window::LOG_WAYLAND, "Failed to get decoration manager");
+      ::window::log_warning(window::LOG_WL, "Failed to get decoration manager");
       // don't exit -> wm like mutter don't support decoration manager
     }
+
+    // set the initial dimensions before the commit,
+    // because the configure callback uses them
+    data.width = w;
+    data.height = h;
+
     xdg_surface_set_window_geometry(data.xsurface, 0, 0, w, h);
     xdg_toplevel_set_title(data.xtoplevel, title);
+
     if (!data.hintmem->appname.empty()) {
       xdg_toplevel_set_app_id(data.xtoplevel, data.hintmem->appname.c_str());
     }
     wl_surface_commit(data.surface);
 
+    if (wl_display_roundtrip(data.display) < 0) {
+      ::window::log_error(
+        window::LOG_WL,
+        "Failed while waiting for initial xdg_surface configure"
+      );
+      destroy(data);
+      return ::window::CONNECTIONFAILED;
+    }
+
     data.isopen = true;
-    data.width = w;
-    data.height = h;
 
     return ::window::SUCCESS;
   }
@@ -447,106 +523,288 @@ namespace window::wl {
     return result < 0 ? ::window::UNKNOWNFAILURE : ::window::SUCCESS;
   }
     
-  ::window::result make_opengl_context(window_wl_data& data) noexcept {
-    data.egl_display = eglGetDisplay((EGLNativeDisplayType)data.display);
-    if (data.egl_display == EGL_NO_DISPLAY) {
-      ::window::log_error(window::LOG_WAYLAND, "Failed to connect to egl display server");
-      return ::window::CONNECTIONFAILED;
-    }
+  ::window::result make_gfx_context(window_wl_data& data) noexcept {
 
-    if (eglInitialize(data.egl_display, nullptr, nullptr) == false) {
-      EGLint error = eglGetError();
-      ::window::log_error(window::LOG_WAYLAND, "Failed to Inizialize EGL (code:0x%x=%s)",
-        error, eglGetErrorString(error)
-      );
-      return ::window::UNKNOWNFAILURE;
-    }
+    switch (data.hintmem->gfx_backend) {
+      case GRAPHICS_OPENGL: {
+        data.egl_display = eglGetDisplay((EGLNativeDisplayType)data.display);
+        if (data.egl_display == EGL_NO_DISPLAY) {
+          ::window::log_error(window::LOG_WL, "Failed to connect to egl display server");
+          return ::window::CONNECTIONFAILED;
+        }
 
-    if (eglBindAPI(EGL_OPENGL_API) == EGL_FALSE) {
-      EGLint error = eglGetError();
-      ::window::log_error(window::LOG_WAYLAND, "Failed to bind OpenGL API (code:0x%x=%s)",
-        error, eglGetErrorString(error)
-      );
-      return ::window::UNKNOWNFAILURE;
-    }
+        if (eglInitialize(data.egl_display, nullptr, nullptr) == false) {
+          EGLint error = eglGetError();
+          ::window::log_error(
+            window::LOG_WL, "Failed to Inizialize EGL (code:0x%x=%s)",
+            error, eglGetErrorString(error)
+          );
+          return ::window::UNKNOWNFAILURE;
+        }
 
-    EGLint attr[] = {
-      EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
-      EGL_RED_SIZE, 8,
-      EGL_GREEN_SIZE, 8,
-      EGL_BLUE_SIZE, 8,
-      EGL_SURFACE_TYPE,
-      EGL_WINDOW_BIT,
-      EGL_NONE
-    };
+        if (eglBindAPI(EGL_OPENGL_API) == EGL_FALSE) {
+          EGLint error = eglGetError();
+          ::window::log_error(
+            window::LOG_WL, "Failed to bind OpenGL API (code:0x%x=%s)",
+            error, eglGetErrorString(error)
+          );
+          return ::window::UNKNOWNFAILURE;
+        }
 
-    EGLint configs = 0;
-    if (eglChooseConfig(data.egl_display, attr, &data.egl_config, 1, &configs) == false) {
-      EGLint error = eglGetError();
-      ::window::log_error(window::LOG_WAYLAND, "Failed to choose EGL Config (code:0x%x=%s)",
-        error, eglGetErrorString(error)
-      );
-      return ::window::UNKNOWNFAILURE;
-    }
+        EGLint attr[] = {
+          EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+          EGL_RED_SIZE, 8,
+          EGL_GREEN_SIZE, 8,
+          EGL_BLUE_SIZE, 8,
+          EGL_SURFACE_TYPE,
+          EGL_WINDOW_BIT,
+          EGL_NONE
+        };
 
-    if (configs == 0) {
-      ::window::log_error(window::LOG_WAYLAND, "Failed to choose EGL Config (no valid available)");
-      return ::window::UNKNOWNFAILURE;
-    }
+        EGLint configs = 0;
+        if (eglChooseConfig(data.egl_display, attr, &data.egl_config, 1, &configs) == false) {
+          EGLint error = eglGetError();
+          ::window::log_error(
+            window::LOG_WL, "Failed to choose EGL Config (code:0x%x=%s)",
+            error, eglGetErrorString(error)
+          );
+          return ::window::UNKNOWNFAILURE;
+        }
 
-    bool glv = data.hintmem->glvmajor > 0 && data.hintmem->glvminor >= 0;
-    EGLint ctxattr[] = {
-      EGL_CONTEXT_MAJOR_VERSION, glv ? data.hintmem->glvmajor : 3,
-      EGL_CONTEXT_MINOR_VERSION, glv ? data.hintmem->glvminor : 3,
-      EGL_NONE
-    };
+        if (configs == 0) {
+          ::window::log_error(window::LOG_WL, "Failed to choose EGL Config (no valid available)");
+          return ::window::UNKNOWNFAILURE;
+        }
 
-    data.egl_context = eglCreateContext(data.egl_display, data.egl_config, EGL_NO_CONTEXT, ctxattr);
+        bool glv = data.hintmem->glvmajor > 0 && data.hintmem->glvminor >= 0;
+        EGLint ctxattr[] = {
+          EGL_CONTEXT_MAJOR_VERSION, glv ? data.hintmem->glvmajor : 3,
+          EGL_CONTEXT_MINOR_VERSION, glv ? data.hintmem->glvminor : 3,
+          EGL_NONE
+        };
 
-    if (data.egl_context == EGL_NO_CONTEXT) {
-      EGLint error = eglGetError();
-      ::window::log_error(window::LOG_WAYLAND, "Failed to create EGL %i.%i Context (code 0x%x=%s)",
-        data.hintmem->glvmajor, data.hintmem->glvminor, error, eglGetErrorString(error)
-      );
-      return ::window::CREATIONFAILED;
-    }
+        data.egl_context = eglCreateContext(data.egl_display, data.egl_config, EGL_NO_CONTEXT, ctxattr);
 
-    data.egl_window = wl_egl_window_create(data.surface, data.width, data.height);
-    if (data.egl_window == nullptr) {
-      EGLint error = eglGetError();
-      ::window::log_error(window::LOG_WAYLAND, "Failed to create EGL Window (code 0x%x=%s)",
-        error, eglGetErrorString(error)
-      );
-      return ::window::CREATIONFAILED;
-    }
+        if (data.egl_context == EGL_NO_CONTEXT) {
+          EGLint error = eglGetError();
+          ::window::log_error(
+            window::LOG_WL, "Failed to create EGL %i.%i Context (code 0x%x=%s)",
+            data.hintmem->glvmajor, data.hintmem->glvminor, error, eglGetErrorString(error)
+          );
+          return ::window::CREATIONFAILED;
+        }
 
-    data.egl_surface = eglCreateWindowSurface(data.egl_display, data.egl_config, data.egl_window, NULL);
-    if (data.egl_surface == EGL_NO_SURFACE) {
-      EGLint error = eglGetError();
-      ::window::log_error(window::LOG_WAYLAND, "Failed to create EGL Surface (code 0x%x=%s)",
-        error, eglGetErrorString(error)
-      );
-      return ::window::CREATIONFAILED;
-    }
-      
-    if (eglMakeCurrent(data.egl_display, data.egl_surface, data.egl_surface, data.egl_context) == false) {
-      EGLint error = eglGetError();
-      ::window::log_error(window::LOG_WAYLAND, "Failed to attach an EGL rendering context to EGL surfaces (code 0x%x=%s)",
-        error, eglGetErrorString(error)
-      );
-      return ::window::CREATIONFAILED;
+        data.egl_window = wl_egl_window_create(data.surface, data.width, data.height);
+        if (data.egl_window == nullptr) {
+          EGLint error = eglGetError();
+          ::window::log_error(
+            window::LOG_WL, "Failed to create EGL Window (code 0x%x=%s)",
+            error, eglGetErrorString(error)
+          );
+          return ::window::CREATIONFAILED;
+        }
+
+        data.egl_surface = eglCreateWindowSurface(data.egl_display, data.egl_config, data.egl_window, NULL);
+        if (data.egl_surface == EGL_NO_SURFACE) {
+          EGLint error = eglGetError();
+          ::window::log_error(
+            window::LOG_WL, "Failed to create EGL Surface (code 0x%x=%s)",
+            error, eglGetErrorString(error)
+          );
+          return ::window::CREATIONFAILED;
+        }
+
+        if (eglMakeCurrent(data.egl_display, data.egl_surface, data.egl_surface, data.egl_context) == false) {
+          EGLint error = eglGetError();
+          ::window::log_error(
+            window::LOG_WL, "Failed to attach an EGL rendering context to EGL surfaces (code 0x%x=%s)",
+            error, eglGetErrorString(error)
+          );
+          return ::window::CREATIONFAILED;
+        }
+
+        break;
+      }
+      case GRAPHICS_FRAMEBUFFER: {
+        ::window::result out = resize_framebuffer(data, 0, 0);
+        if (out != ::window::SUCCESS) {
+          return out;
+        }
+        break;
+      }
     }
 
     return ::window::SUCCESS;
   }
 
-  ::window::result swap_buffers(const window_wl_data& data) noexcept {
-    if (eglSwapBuffers(data.egl_display, data.egl_surface) == false) {
-      EGLint error = eglGetError();
-      ::window::log_error(window::LOG_WAYLAND, "Failed to swap buffers (code 0x%x=%s)",
-        error, eglGetErrorString(error)
+  ::window::result resize_framebuffer(window_wl_data& data, int width, int height) noexcept {
+    if (data.hintmem == nullptr) {
+      ::window::log_error(::window::LOG_WL, "data.hintmem is a nullptr");
+      return window::BADWINDOW;
+    }
+
+    if (data.hintmem->gfx_backend != GRAPHICS_FRAMEBUFFER) {
+      ::window::log_error(
+        ::window::LOG_WL,
+        "selected graphics backend is not suitable for resize_framebuffer"
       );
-      return ::window::BADWINDOW;
+      return window::UNSUPPORTED;
+    }
+
+    if (data.fb == nullptr) {
+      ::window::log_error(::window::LOG_WL, "data.fb is a nullptr");
+      return window::BADWINDOW;
+    }
+
+    if (data.display == nullptr || data.surface == nullptr) {
+      ::window::log_error(::window::LOG_WL, "window/display is not ready");
+      return window::BADWINDOW;
+    }
+
+    if (data.buffer_busy) {
+      ::window::log_warning(
+        ::window::LOG_WL,
+        "cannot resize framebuffer while its buffer is busy"
+      );
+      return ::window::UNKNOWNFAILURE;
+    }
+
+    if (width <= 0) {
+      width  = data.width;
+    }
+
+    if (height <= 0) {
+      height = data.height;
+    }
+
+    if (width <= 0 || height <= 0) {
+      ::window::log_error(::window::LOG_WL, "invalid framebuffer size");
+      return window::BADWINDOW;
+    }
+
+    const int stride_bytes = width * static_cast<int>(sizeof(std::uint32_t));
+    const std::size_t size = static_cast<std::size_t>(stride_bytes) * static_cast<std::size_t>(height);
+
+    if (data.buffer) {
+      wl_buffer_destroy(data.buffer);
+      data.buffer = nullptr;
+    }
+
+    if (data.shm_pool) {
+      wl_shm_pool_destroy(data.shm_pool);
+      data.shm_pool = nullptr;
+    }
+
+    if (data.fb->pixels && data.buffer_size > 0) {
+      munmap(data.fb->pixels, data.buffer_size);
+      data.fb->pixels = nullptr;
+    }
+
+    int fd = allocate_shm_file(size);
+    if (fd < 0) {
+      ::window::log_error(::window::LOG_WL, "failed to allocate shm file");
+      return window::BADALLOC;
+    }
+
+    void* map = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (map == MAP_FAILED) {
+      close(fd);
+      ::window::log_error(::window::LOG_WL, "mmap failed");
+      return window::BADALLOC;
+    }
+
+    if (data.shm == nullptr) {
+      munmap(map, size);
+      close(fd);
+      ::window::log_error(::window::LOG_WL, "wl_shm is not available");
+      return window::BADWINDOW;
+    }
+
+    data.shm_pool = wl_shm_create_pool(data.shm, fd, static_cast<int>(size));
+    if (data.shm_pool == nullptr) {
+      munmap(map, size);
+      close(fd);
+      ::window::log_error(::window::LOG_WL, "wl_shm_create_pool failed");
+      return window::BADALLOC;
+    }
+
+    data.buffer = wl_shm_pool_create_buffer(
+      data.shm_pool,
+      0,
+      width,
+      height,
+      stride_bytes,
+      WL_SHM_FORMAT_XRGB8888
+    );
+
+    if (data.buffer == nullptr) {
+      wl_shm_pool_destroy(data.shm_pool);
+      data.shm_pool = nullptr;
+      munmap(map, size);
+      close(fd);
+      ::window::log_error(::window::LOG_WL, "wl_shm_pool_create_buffer failed");
+      return window::BADALLOC;
+    }
+
+    wl_buffer_add_listener(data.buffer, &buffer_listener, &data);
+
+    data.fb->pixels  = static_cast<std::uint32_t*>(map);
+    data.fb->width   = width;
+    data.fb->height  = height;
+    data.fb->stride  = stride_bytes;
+    data.buffer_size = size;
+    data.buffer_busy = false;
+
+    close(fd);
+
+    return window::SUCCESS;
+  }
+
+  ::window::result swap_buffers(window_wl_data& data) noexcept {
+    if (data.hintmem == nullptr) {
+      ::window::log_error(::window::LOG_WL, "data.hintmem is a nullptr");
+      return window::BADWINDOW;
+    }
+
+    switch (data.hintmem->gfx_backend) {
+      case GRAPHICS_OPENGL: {
+        if (eglSwapBuffers(data.egl_display, data.egl_surface) == false) {
+          EGLint error = eglGetError();
+          ::window::log_error(
+            window::LOG_WL, "Failed to swap buffers (code 0x%x=%s)",
+            error, eglGetErrorString(error)
+          );
+          return ::window::BADWINDOW;
+        }
+        break;
+      }
+      case GRAPHICS_FRAMEBUFFER: {
+        if (data.fb == nullptr || data.buffer == nullptr) {
+          return ::window::BADWINDOW;
+        }
+
+        if (data.buffer_busy) {
+          return ::window::SUCCESS;
+        }
+
+        wl_surface_attach(data.surface, data.buffer, 0, 0);
+        wl_surface_damage_buffer(data.surface, 0, 0, data.fb->width, data.fb->height);
+
+        data.buffer_busy = true;
+
+        wl_surface_commit(data.surface);
+
+        if (wl_display_flush(data.display) < 0 && errno != EAGAIN) {
+          data.buffer_busy = false;
+
+          ::window::log_error(
+            ::window::LOG_WL,
+            "wl_display_flush failed: %s",
+            strerror(errno)
+          );
+          return ::window::CONNECTIONFAILED;
+        }
+      }
     }
     return ::window::SUCCESS;
   }
@@ -554,7 +812,7 @@ namespace window::wl {
   ::window::result swap_interval(const window_wl_data& data, int interval) noexcept {
     if (eglSwapInterval(data.egl_display, interval) == false) {
       EGLint error = eglGetError();
-      ::window::log_error(window::LOG_WAYLAND, "Failed to set swap interval (code 0x%x=%s)",
+      ::window::log_error(window::LOG_WL, "Failed to set swap interval (code 0x%x=%s)",
         error, eglGetErrorString(error)
       );
       return ::window::BADWINDOW;
@@ -563,6 +821,23 @@ namespace window::wl {
   }
 
   void destroy(window_wl_data& data) noexcept {
+    if (data.fb) {
+      if (data.buffer) {
+        wl_buffer_destroy(data.buffer);
+        data.buffer = nullptr;
+      }
+      if (data.shm_pool) {
+        wl_shm_pool_destroy(data.shm_pool);
+        data.shm_pool = nullptr;
+      }
+      if (data.fb->pixels && data.buffer_size > 0) {
+        munmap(data.fb->pixels, data.buffer_size);
+        data.fb->pixels = nullptr;
+      }
+      data.buffer_size = 0;
+      data.buffer_busy = false;
+    }
+
     if (data.decoration) {
       zxdg_toplevel_decoration_v1_destroy(data.decoration);
     }

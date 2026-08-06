@@ -147,7 +147,7 @@ namespace window {
     #endif
   }
 
-  result window::swap_buffers() const noexcept {
+  result window::swap_buffers() noexcept {
     #if defined(window_wl) && defined(window_x11)
       if (is_valid_wl(wl)) {
         return wl::swap_buffers(wl);
@@ -250,7 +250,7 @@ namespace window {
     if (this->is_open()) {
       #if defined(window_wl) && defined(window_x11)
         if (is_valid_wl(wl)) {
-          ::window::log_error(::window::LOG_WAYLAND, "window is already created");
+          ::window::log_error(::window::LOG_WL, "window is already created");
         } else {
           ::window::log_error(::window::LOG_X11, "window is already created");
         }
@@ -258,7 +258,7 @@ namespace window {
         #ifdef window_x11
           ::window::log_error(::window::LOG_X11, "window is already created");
         #elif defined(window_wl)
-          ::window::log_error(::window::LOG_WAYLAND, "window is already created");
+          ::window::log_error(::window::LOG_WL, "window is already created");
         #endif
       #endif
       return ::window::ALREADYEXISTS;

@@ -14,6 +14,7 @@
   struct window_wl_data {
     ::window::input_data* input;
     ::window::hint_data*  hintmem;
+    ::window::framebuffer_data* fb;
 
     wl_display*    display;
     wl_compositor* compositor;
@@ -40,6 +41,12 @@
     EGLContext     egl_context;
     EGLSurface     egl_surface;
 
+    wl_shm*        shm;
+    wl_shm_pool*   shm_pool;
+    wl_buffer*     buffer;
+    std::size_t    buffer_size; // total mapped size TODO: remove/combine with x11
+    bool           buffer_busy; // TODO: mb combine with x11
+
     bool           isopen;
     int            width;
     int            height;
@@ -51,7 +58,8 @@
     ::window::result set_size(window_wl_data& data, int w, int h) noexcept;
     ::window::result poll_events(window_wl_data& data) noexcept;
     ::window::result make_gfx_context(window_wl_data& data) noexcept;
-    ::window::result swap_buffers(const window_wl_data& data) noexcept;
+    ::window::result resize_framebuffer(window_wl_data& data, int width, int height) noexcept;
+    ::window::result swap_buffers(window_wl_data& data) noexcept;
     ::window::result swap_interval(const window_wl_data& data, int interval) noexcept;
     void destroy(window_wl_data& data) noexcept;
   }

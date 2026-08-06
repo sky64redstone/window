@@ -13,7 +13,7 @@
 
     // I have no idea how I should name this enum...
     enum log_layer {
-      LOG_WAYLAND,
+      LOG_WL,
       LOG_X11,
       LOG_WIN
     };

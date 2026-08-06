@@ -448,7 +448,7 @@ namespace window {
     return SUCCESS;
   }
 
-  result window::swap_buffers() const noexcept {
+  result window::swap_buffers() noexcept {
     BOOL success = SwapBuffers(win32.dc);
     return success ? SUCCESS : UNKNOWNFAILURE;
   }

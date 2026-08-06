@@ -542,7 +542,7 @@ namespace window {
       data.fb->pixels = pixels;
       data.fb->width = width;
       data.fb->height = height;
-      data.fb->stride = width;
+      data.fb->stride = width * sizeof(std::uint32_t);
 
       return window::SUCCESS;
     }
@@ -587,8 +587,7 @@ namespace window {
             return window::BADWINDOW;
           }
 
-          std::size_t scaled_count =
-          static_cast<std::size_t>(win_width) * static_cast<std::size_t>(win_height);
+          std::size_t scaled_count = static_cast<std::size_t>(win_width) * static_cast<std::size_t>(win_height);
 
           std::uint32_t* scaled = new (std::nothrow) std::uint32_t[scaled_count];
 
@@ -658,7 +657,7 @@ namespace window {
             0, 0,
             0, 0,
             static_cast<unsigned int>(win_width),
-                    static_cast<unsigned int>(win_height)
+            static_cast<unsigned int>(win_height)
           );
 
           XFlush(data.display);

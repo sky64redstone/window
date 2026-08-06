@@ -48,7 +48,7 @@ namespace window {
     }
 
     const char* lay = "unknown";
-    if (layer >= LOG_WAYLAND && layer <= LOG_WIN) {
+    if (layer >= LOG_WL && layer <= LOG_WIN) {
       lay = layer_names[layer];
     }
 
