@@ -315,7 +315,11 @@ namespace window {
     return SUCCESS;
   }
 
-  result window::make_opengl_context() noexcept {
+  result window::make_gfx_context() noexcept {
+    if (win32.dc != NULL) {
+      log_error(LOG_WIN, "Device context already exists");
+      return ALREADYEXISTS;
+    }
     win32.dc = GetDC(win32.win);
 
     if (win32.dc == NULL) {
@@ -323,140 +327,223 @@ namespace window {
       return BADWINDOW;
     }
 
-    PIXELFORMATDESCRIPTOR pfd = {
-      sizeof(PIXELFORMATDESCRIPTOR),
-      1,
-      PFD_DRAW_TO_WINDOW |
-      PFD_SUPPORT_OPENGL |
-      PFD_DOUBLEBUFFER,
-      PFD_TYPE_RGBA,
-      32,
-      0,0,0,0,0,0,
-      0,
-      0,
-      0,
-      0,0,0,0,
-      24, // depth
-      8,  // stencil
-      0,
-      PFD_MAIN_PLANE,
-      0,
-      0,0,0
-    };
-
-    int pf = ChoosePixelFormat(win32.dc, &pfd);
-    if (!pf) {
-      log_error(LOG_WIN, "Unable to choose Pixel Format");
-      ReleaseDC(win32.win, win32.dc);
-      return UNKNOWNFAILURE;
-    }
-
-    if (!SetPixelFormat(win32.dc, pf, &pfd)) {
-      log_error(LOG_WIN, "Unable to set Pixel Format");
-      ReleaseDC(win32.win, win32.dc);
-      return UNKNOWNFAILURE;
-    }
-
-    // do we need to create a specific context?
-    if (hintmem.glvmajor > 0 && hintmem.glvminor >= 0) {
-      // create temp context for loading wglCreateContextAttribsARB
-      HGLRC temp = nullptr;
-      if (!win32::wglCreateContextAttribsARB) {
-        temp = wglCreateContext(win32.dc);
-        if (!temp) {
-          log_error(LOG_WIN, "Unable to create temporary WGL Context");
-          ReleaseDC(win32.win, win32.dc);
-          return CREATIONFAILED;
+    switch (hintmem.gfx_backend) {
+      case GRAPHICS_FRAMEBUFFER: {
+        if (fb.pixels != nullptr) {
+          ::window::log_error(::window::LOG_WIN, "framebuffer already exists");
+          return ALREADYEXISTS;
         }
 
-        if (!wglMakeCurrent(win32.dc, temp)) {
-          log_error(LOG_WIN, "Unable to make temporary current Render Context");
-          wglDeleteContext(temp);
+        return resize_framebuffer(0, 0);
+      }
+      case GRAPHICS_OPENGL: {
+        PIXELFORMATDESCRIPTOR pfd = {
+          sizeof(PIXELFORMATDESCRIPTOR),
+          1,
+          PFD_DRAW_TO_WINDOW |
+          PFD_SUPPORT_OPENGL |
+          PFD_DOUBLEBUFFER,
+          PFD_TYPE_RGBA,
+          32,
+          0,0,0,0,0,0,
+          0,
+          0,
+          0,
+          0,0,0,0,
+          24, // depth
+          8,  // stencil
+          0,
+          PFD_MAIN_PLANE,
+          0,
+          0,0,0
+        };
+
+        int pf = ChoosePixelFormat(win32.dc, &pfd);
+        if (!pf) {
+          log_error(LOG_WIN, "Unable to choose Pixel Format");
           ReleaseDC(win32.win, win32.dc);
           return UNKNOWNFAILURE;
         }
 
-        win32::load_wgl_create_context();
-
-        if (!win32::wglCreateContextAttribsARB) {
-          log_error(LOG_WIN, "wglCreateContextAttribsARB not supported");
-          wglMakeCurrent(NULL, NULL);
-          wglDeleteContext(temp);
+        if (!SetPixelFormat(win32.dc, pf, &pfd)) {
+          log_error(LOG_WIN, "Unable to set Pixel Format");
           ReleaseDC(win32.win, win32.dc);
-          return UNSUPPORTED;
+          return UNKNOWNFAILURE;
+        }
+
+        // do we need to create a specific context?
+        if (hintmem.glvmajor > 0 && hintmem.glvminor >= 0) {
+          // create temp context for loading wglCreateContextAttribsARB
+          HGLRC temp = nullptr;
+          if (!win32::wglCreateContextAttribsARB) {
+            temp = wglCreateContext(win32.dc);
+            if (!temp) {
+              log_error(LOG_WIN, "Unable to create temporary WGL Context");
+              ReleaseDC(win32.win, win32.dc);
+              return CREATIONFAILED;
+            }
+
+            if (!wglMakeCurrent(win32.dc, temp)) {
+              log_error(LOG_WIN, "Unable to make temporary current Render Context");
+              wglDeleteContext(temp);
+              ReleaseDC(win32.win, win32.dc);
+              return UNKNOWNFAILURE;
+            }
+
+            win32::load_wgl_create_context();
+
+            if (!win32::wglCreateContextAttribsARB) {
+              log_error(LOG_WIN, "wglCreateContextAttribsARB not supported");
+              wglMakeCurrent(NULL, NULL);
+              wglDeleteContext(temp);
+              ReleaseDC(win32.win, win32.dc);
+              return UNSUPPORTED;
+            }
+          }
+
+          int attribs[] = {
+            WGL_CONTEXT_PROFILE_MASK_ARB,
+            WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+
+            WGL_CONTEXT_MAJOR_VERSION_ARB, hintmem.glvmajor,
+            WGL_CONTEXT_MINOR_VERSION_ARB, hintmem.glvminor,
+
+            #ifdef _DEBUG
+            WGL_CONTEXT_FLAGS_ARB,
+            WGL_CONTEXT_DEBUG_BIT_ARB,
+            #endif
+
+            0
+          };
+
+          // create now the real context with the right version
+
+          HGLRC modern = win32::wglCreateContextAttribsARB(win32.dc, 0, attribs);
+
+          if (!modern) {
+            log_error(LOG_WIN, "Failed to create OpenGL %i.%i context", hintmem.glvmajor, hintmem.glvminor);
+            ReleaseDC(win32.win, win32.dc);
+            return CREATIONFAILED;
+          }
+
+          // destroy and replace the temporary context
+          if (temp) {
+            wglMakeCurrent(nullptr, nullptr);
+            wglDeleteContext(temp);
+          }
+
+          if (!wglMakeCurrent(win32.dc, modern)) {
+            log_error(LOG_WIN, "Failed to activate modern context");
+            wglDeleteContext(modern);
+            ReleaseDC(win32.win, win32.dc);
+            return UNKNOWNFAILURE;
+          }
+
+          win32.rc = modern;
+
+          return SUCCESS;
+        }
+
+        // create default context
+        win32.rc = wglCreateContext(win32.dc);
+        if (win32.rc == NULL) {
+          log_error(LOG_WIN, "Unable to create WGL Context");
+          ReleaseDC(win32.win, win32.dc);
+          return CREATIONFAILED;
+        }
+
+        if (!wglMakeCurrent(win32.dc, win32.rc)) {
+          log_error(LOG_WIN, "Unable to make current Render Context");
+          wglDeleteContext(win32.rc);
+          ReleaseDC(win32.win, win32.dc);
+          return UNKNOWNFAILURE;
         }
       }
-
-      int attribs[] = {
-        WGL_CONTEXT_PROFILE_MASK_ARB,
-        WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
-
-        WGL_CONTEXT_MAJOR_VERSION_ARB, hintmem.glvmajor,
-        WGL_CONTEXT_MINOR_VERSION_ARB, hintmem.glvminor,
-
-        #ifdef _DEBUG
-        WGL_CONTEXT_FLAGS_ARB,
-        WGL_CONTEXT_DEBUG_BIT_ARB,
-        #endif
-
-        0
-      };
-
-      // create now the real context with the right version
-
-      HGLRC modern = win32::wglCreateContextAttribsARB(win32.dc, 0, attribs);
-
-      if (!modern) {
-        log_error(LOG_WIN, "Failed to create OpenGL %i.%i context", hintmem.glvmajor, hintmem.glvminor);
+      default: {
+        log_error(::window::LOG_WIN, "Unsupported graphics backend");
         ReleaseDC(win32.win, win32.dc);
-        return CREATIONFAILED;
+        return UNSUPPORTED;
       }
-
-      // destroy and replace the temporary context
-      if (temp) {
-        wglMakeCurrent(nullptr, nullptr);
-        wglDeleteContext(temp);
-      }
-
-      if (!wglMakeCurrent(win32.dc, modern)) {
-        log_error(LOG_WIN, "Failed to activate modern context");
-        wglDeleteContext(modern);
-        ReleaseDC(win32.win, win32.dc);
-        return UNKNOWNFAILURE;
-      }
-
-      win32.rc = modern;
-
-      return SUCCESS;
-    }
-
-    // create default context
-    win32.rc = wglCreateContext(win32.dc);
-    if (win32.rc == NULL) {
-      log_error(LOG_WIN, "Unable to create WGL Context");
-      ReleaseDC(win32.win, win32.dc);
-      return CREATIONFAILED;
-    }
-
-    if (!wglMakeCurrent(win32.dc, win32.rc)) {
-      log_error(LOG_WIN, "Unable to make current Render Context");
-      wglDeleteContext(win32.rc);
-      ReleaseDC(win32.win, win32.dc);
-      return UNKNOWNFAILURE;
     }
 
     return SUCCESS;
   }
 
+  result window::resize_framebuffer(int width, int height) noexcept {
+    if (hintmem.gfx_backend != GRAPHICS_FRAMEBUFFER) {
+      ::window::log_error(::window::LOG_WIN, "selected graphics backend is not suitable for resize_framebuffer");
+      return UNSUPPORTED;
+    }
+
+    if (width <= 0) {
+      width = win32.width;
+    }
+
+    if (height <= 0) {
+      height = win32.height;
+    }
+
+    if (width <= 0 || height <= 0) {
+      ::window::log_error(::window::LOG_WIN, "invalid framebuffer size");
+      return BADWINDOW;
+    }
+
+    std::size_t pixel_count = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+
+    std::uint32_t* pixels = new (std::nothrow) std::uint32_t[pixel_count]();
+
+    if (pixels == nullptr) {
+      ::window::log_error(::window::LOG_WIN, "failed to allocate framebuffer");
+      return BADALLOC;
+    }
+
+    delete[] fb.pixels;
+
+    fb.width = width;
+    fb.height = height;
+    fb.stride = fb.width * sizeof(std::uint32_t);
+    fb.pixels = new std::uint32_t[fb.height * fb.stride];
+
+    return SUCCESS;
+  }
+
   result window::swap_buffers() noexcept {
-    BOOL success = SwapBuffers(win32.dc);
-    return success ? SUCCESS : UNKNOWNFAILURE;
+    switch (hintmem.gfx_backend) {
+      case GRAPHICS_OPENGL: {
+        BOOL success = SwapBuffers(win32.dc);
+        return success ? SUCCESS : UNKNOWNFAILURE;
+      }
+      case GRAPHICS_FRAMEBUFFER: {
+        BITMAPINFO bmi = {0};
+        bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+        bmi.bmiHeader.biWidth = win32.width;
+        bmi.bmiHeader.biHeight = -win32.height; /* top-down */
+        bmi.bmiHeader.biPlanes = 1;
+        bmi.bmiHeader.biBitCount = 32;
+        bmi.bmiHeader.biCompression = BI_RGB;
+        int res = StretchDIBits(
+          win32.dc,
+          0, 0, win32.width, win32.height,
+          0, 0, fb.width, fb.height,
+          fb.pixels,
+          &bmi,
+          DIB_RGB_COLORS,
+          SRCCOPY
+        );
+        return res ? UNKNOWNFAILURE : SUCCESS;
+      }
+      default: {
+        log_error(::window::LOG_WIN, "Unsupported graphics backend");
+        ReleaseDC(win32.win, win32.dc);
+        return UNSUPPORTED;
+      }
+    }
   }
 
   result window::swap_interval(int interval) const noexcept {
     win32::load_swap_interval();
     if (win32::wglSwapIntervalEXT == nullptr) {
-      fprintf(stderr, "[window] win32: The function wglSwapIntervalEXT seems to be unsupported!!!\n");
+      log_error(::window::LOG_WIN, "The function wglSwapIntervalEXT seems to be unsupported!");
       return UNSUPPORTED;
     }
     BOOL success = win32::wglSwapIntervalEXT(interval);
@@ -522,6 +609,35 @@ namespace window {
 
   backend window::get_backend() const noexcept {
     return ::window::backend::WINDOWS;
+  }
+  
+  graphics_backend window::get_gfx_backend() const noexcept {
+    return hintmem.gfx_backend;
+  }
+
+  result window::set_gfx_backend(graphics_backend backend) noexcept {
+    hintmem.gfx_backend = backend;
+    return SUCCESS;
+  }
+
+  const std::uint32_t* window::framebuffer_pixels() const noexcept {
+    return fb.pixels;
+  }
+
+  std::uint32_t* window::framebuffer_pixels() noexcept {
+    return fb.pixels;
+  }
+
+  int window::framebuffer_width() const noexcept {
+    return fb.width;
+  }
+
+  int window::framebuffer_height() const noexcept {
+    return fb.height;
+  }
+
+  int window::framebuffer_stride() const noexcept {
+    return fb.stride;
   }
 
   void window::destroy() noexcept {
