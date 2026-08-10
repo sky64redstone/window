@@ -381,7 +381,10 @@ namespace window::wl {
     .release = buffer_release
   };
 
-  ::window::result create_window(window_wl_data& data, int w, int h, const char* title) noexcept {
+  ::window::result create_window(
+    window_wl_data& data, int w, int h,
+    std::string_view title, std::string_view appname
+  ) noexcept {
     data.display = wl_display_connect(NULL);
     if (data.display == nullptr) {
       ::window::log_error(window::LOG_WL, "Failed to connect to wayland display");
@@ -471,10 +474,10 @@ namespace window::wl {
     data.height = h;
 
     xdg_surface_set_window_geometry(data.xsurface, 0, 0, w, h);
-    xdg_toplevel_set_title(data.xtoplevel, title);
 
-    if (!data.hintmem->appname.empty()) {
-      xdg_toplevel_set_app_id(data.xtoplevel, data.hintmem->appname.c_str());
+    xdg_toplevel_set_title(data.xtoplevel, title.data());
+    if (!appname.empty()) {
+      xdg_toplevel_set_app_id(data.xtoplevel, appname.data());
     }
     wl_surface_commit(data.surface);
 
@@ -492,8 +495,8 @@ namespace window::wl {
     return ::window::SUCCESS;
   }
 
-  ::window::result set_title(const window_wl_data& data, const char* title) noexcept {
-    xdg_toplevel_set_title(data.xtoplevel, title);
+  ::window::result set_title(const window_wl_data& data, std::string_view title) noexcept {
+    xdg_toplevel_set_title(data.xtoplevel, title.data());
     wl_surface_commit(data.surface);
     return ::window::SUCCESS;
   }
@@ -522,10 +525,17 @@ namespace window::wl {
     }
     return result < 0 ? ::window::UNKNOWNFAILURE : ::window::SUCCESS;
   }
-    
-  ::window::result make_gfx_context(window_wl_data& data) noexcept {
 
-    switch (data.hintmem->gfx_backend) {
+  ::window::result make_gfx_context(
+    window_wl_data& data, graphics_backend gfx_backend, int glmajor, int glminor
+  ) noexcept {
+    data.egl_display = eglGetDisplay((EGLNativeDisplayType)data.display);
+    if (data.egl_display == EGL_NO_DISPLAY) {
+      ::window::log_error(window::LOG_WL, "Failed to connect to egl display server");
+      return ::window::CONNECTIONFAILED;
+    }
+
+    switch (gfx_backend) {
       case GRAPHICS_OPENGL: {
         data.egl_display = eglGetDisplay((EGLNativeDisplayType)data.display);
         if (data.egl_display == EGL_NO_DISPLAY) {
@@ -570,16 +580,15 @@ namespace window::wl {
           );
           return ::window::UNKNOWNFAILURE;
         }
-
         if (configs == 0) {
           ::window::log_error(window::LOG_WL, "Failed to choose EGL Config (no valid available)");
           return ::window::UNKNOWNFAILURE;
         }
 
-        bool glv = data.hintmem->glvmajor > 0 && data.hintmem->glvminor >= 0;
+        bool glv = glmajor > 0 && glminor >= 0;
         EGLint ctxattr[] = {
-          EGL_CONTEXT_MAJOR_VERSION, glv ? data.hintmem->glvmajor : 3,
-          EGL_CONTEXT_MINOR_VERSION, glv ? data.hintmem->glvminor : 3,
+          EGL_CONTEXT_MAJOR_VERSION, glv ? glmajor : 3,
+          EGL_CONTEXT_MINOR_VERSION, glv ? glminor : 3,
           EGL_NONE
         };
 
@@ -589,7 +598,7 @@ namespace window::wl {
           EGLint error = eglGetError();
           ::window::log_error(
             window::LOG_WL, "Failed to create EGL %i.%i Context (code 0x%x=%s)",
-            data.hintmem->glvmajor, data.hintmem->glvminor, error, eglGetErrorString(error)
+            glmajor, glminor, error, eglGetErrorString(error)
           );
           return ::window::CREATIONFAILED;
         }
@@ -626,7 +635,7 @@ namespace window::wl {
         break;
       }
       case GRAPHICS_FRAMEBUFFER: {
-        ::window::result out = resize_framebuffer(data, 0, 0);
+        ::window::result out = resize_framebuffer(data, gfx_backend, 0, 0);
         if (out != ::window::SUCCESS) {
           return out;
         }
@@ -637,13 +646,8 @@ namespace window::wl {
     return ::window::SUCCESS;
   }
 
-  ::window::result resize_framebuffer(window_wl_data& data, int width, int height) noexcept {
-    if (data.hintmem == nullptr) {
-      ::window::log_error(::window::LOG_WL, "data.hintmem is a nullptr");
-      return window::BADWINDOW;
-    }
-
-    if (data.hintmem->gfx_backend != GRAPHICS_FRAMEBUFFER) {
+  ::window::result resize_framebuffer(window_wl_data& data, graphics_backend gfx_backend, int width, int height) noexcept {
+    if (gfx_backend != GRAPHICS_FRAMEBUFFER) {
       ::window::log_error(
         ::window::LOG_WL,
         "selected graphics backend is not suitable for resize_framebuffer"
@@ -760,13 +764,8 @@ namespace window::wl {
     return window::SUCCESS;
   }
 
-  ::window::result swap_buffers(window_wl_data& data) noexcept {
-    if (data.hintmem == nullptr) {
-      ::window::log_error(::window::LOG_WL, "data.hintmem is a nullptr");
-      return window::BADWINDOW;
-    }
-
-    switch (data.hintmem->gfx_backend) {
+  ::window::result swap_buffers(window_wl_data& data, graphics_backend gfx_backend) noexcept {
+    switch (gfx_backend) {
       case GRAPHICS_OPENGL: {
         if (eglSwapBuffers(data.egl_display, data.egl_surface) == false) {
           EGLint error = eglGetError();
@@ -893,10 +892,8 @@ namespace window::wl {
       wl_display_disconnect(data.display);
     }
     ::window::input_data* input = data.input;
-    ::window::hint_data* hintmem = data.hintmem;
     memset(&data, 0, sizeof(data));
     data.input = input;
-    data.hintmem = hintmem;
     // ensure window closed
     data.isopen = false;
     data.display = nullptr;

@@ -1,6 +1,8 @@
 #include <window/window.hpp>
 
+#include <math.h>
 #include <cstdio>
+#include <GL/gl.h>
 
 static void key_event(bool down, window::key_descriptor& k, void* data) noexcept {
   if (down)
@@ -57,19 +59,30 @@ static void size_event(int w, int h, void* data) noexcept {
 int main() {
   bool use_opengl = false;
 
+  window::config c;
   window::window win{};
 
-  // creating the opengl window
-  win.set_appname("myappname");
-
   if (use_opengl) {
-    win.set_glversion(3,3); // should be called before every create function
-    win.set_gfx_backend(::window::GRAPHICS_OPENGL); //  default/not required
+    c.opengl()
+    .version(3,3);
   } else {
-    win.set_gfx_backend(::window::GRAPHICS_FRAMEBUFFER);
+    c.framebuffer();
   }
-  win.create(300, 200, "TEST! :)");
-  win.make_gfx_context();
+
+  // creating the opengl window
+  win.create(
+    c.title("Test! :)")
+     .size(300, 200)
+     .app_name("myappname")
+     // event callback config
+     .on_key(key_event)
+     .on_mouse_move(mouse_event)
+     .on_mouse_button(btn_event)
+     .on_double_click(dblclk_event)
+     .on_vscroll(vscroll_event)
+     .on_hscroll(hscroll_event)
+     .on_resize(size_event)
+  );
 
   printf("Win Backend: %s\n", (
     win.get_backend() == window::WAYLAND ? "Wayland" : (
@@ -77,22 +90,11 @@ int main() {
     )
   );
   printf("GFX Backend: %s\n",
-    win.get_gfx_backend() == window::GRAPHICS_OPENGL ? "OpenGL" :
-    win.get_gfx_backend() == window::GRAPHICS_FRAMEBUFFER ? "Framebuffer" :
-    "Unknown"
+    use_opengl ? "OpenGL" : "Framebuffer"
   );
   if (use_opengl) {
     printf("OpenGL: %s\n", glGetString(GL_VERSION));
   }
-
-  // setting event callbacks up
-  win.set_key_event(key_event);
-  win.set_btn_event(btn_event);
-  win.set_dblclk_event(dblclk_event);
-  win.set_vscroll_event(vscroll_event);
-  win.set_hscroll_event(hscroll_event);
-  win.set_mouse_event(mouse_event);
-  win.set_size_event(size_event);
   
   if (use_opengl) {
     // opengl setup

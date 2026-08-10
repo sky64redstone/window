@@ -1,5 +1,6 @@
 add_library(window SHARED
   "log.cpp"
+  "config.cpp"
 )
 
 target_include_directories(window

@@ -1,6 +1,8 @@
 #if defined(window_wl) && !defined(WAYLAND_HPP)
   #define WAYLAND_HPP
 
+  #include <string_view>
+
   #include <wayland-client.h>
   #include <wayland-egl.h>
   #include <EGL/egl.h>
@@ -13,7 +15,6 @@
 
   struct window_wl_data {
     ::window::input_data* input;
-    ::window::hint_data*  hintmem;
     ::window::framebuffer_data* fb;
 
     wl_display*    display;
@@ -53,13 +54,13 @@
   };
 
   namespace window::wl {
-    ::window::result create_window(window_wl_data& data, int w, int h, const char* title) noexcept;
-    ::window::result set_title(const window_wl_data& data, const char* title) noexcept;
+    ::window::result create_window(window_wl_data& data, int w, int h, std::string_view title, std::string_view appname) noexcept;
+    ::window::result set_title(const window_wl_data& data, std::string_view title) noexcept;
     ::window::result set_size(window_wl_data& data, int w, int h) noexcept;
     ::window::result poll_events(window_wl_data& data) noexcept;
-    ::window::result make_gfx_context(window_wl_data& data) noexcept;
-    ::window::result resize_framebuffer(window_wl_data& data, int width, int height) noexcept;
-    ::window::result swap_buffers(window_wl_data& data) noexcept;
+    ::window::result make_gfx_context(window_wl_data& data, graphics_backend gfx_backend, int glmajor, int glminor) noexcept;
+    ::window::result resize_framebuffer(window_wl_data& data, graphics_backend gfx_backend, int width, int height) noexcept;
+    ::window::result swap_buffers(window_wl_data& data, graphics_backend gfx_backend) noexcept;
     ::window::result swap_interval(const window_wl_data& data, int interval) noexcept;
     void destroy(window_wl_data& data) noexcept;
   }

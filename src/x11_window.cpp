@@ -44,15 +44,13 @@ namespace window {
       return 0;
     }
 
-    ::window::result create_window(window_x11_data& data, int w, int h, const char* title) noexcept {
+    ::window::result create_window(
+      window_x11_data& data, int w, int h, std::string_view title, 
+      graphics_backend gfx_backend, int glmajor, int glminor, std::string_view appname
+    ) noexcept {
       if (data.display != None) {
         ::window::log_warning(::window::LOG_X11, "window already exists");
         return window::ALREADYEXISTS;
-      }
-
-      if (data.hintmem == nullptr) {
-        ::window::log_error(::window::LOG_X11, "data.hintmem is a nullptr");
-        return window::BADWINDOW;
       }
 
       XSetErrorHandler(error_handler);
@@ -79,7 +77,7 @@ namespace window {
         KeyReleaseMask | ButtonPressMask | ButtonReleaseMask |
         PointerMotionMask | FocusChangeMask | StructureNotifyMask;
 
-      switch (data.hintmem->gfx_backend) {
+      switch (gfx_backend) {
         case window::GRAPHICS_OPENGL: {
           if (glXQueryExtension(data.display, nullptr, nullptr) != True) {
             ::window::log_error(::window::LOG_X11, "GLX isn't supported on this device");
@@ -91,8 +89,7 @@ namespace window {
           XVisualInfo* visual;
 
           // do we need to create a specific context?
-          bool glv = data.hintmem->glvmajor > 0 &&
-                     data.hintmem->glvminor >= 0;
+          bool glv = glmajor > 0 && glminor >= 0;
 
           if (glv) {
             int fbAttribs[] = {
@@ -194,8 +191,8 @@ namespace window {
             }
 
             int contextAttribs[] = {
-              GLX_CONTEXT_MAJOR_VERSION_ARB, data.hintmem->glvmajor,
-              GLX_CONTEXT_MINOR_VERSION_ARB, data.hintmem->glvminor,
+              GLX_CONTEXT_MAJOR_VERSION_ARB, glmajor,
+              GLX_CONTEXT_MINOR_VERSION_ARB, glminor,
 
               GLX_CONTEXT_PROFILE_MASK_ARB,
               GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
@@ -280,15 +277,15 @@ namespace window {
 
       data.isopen = true;
 
-      if (!data.hintmem->appname.empty()) {
+      if (!appname.empty()) {
         XClassHint class_hint{};
         class_hint.res_name  = const_cast<char*>("window_api::window");
-        class_hint.res_class = const_cast<char*>(data.hintmem->appname.c_str());
+        class_hint.res_class = const_cast<char*>(appname.data());
 
         XSetClassHint(data.display, data.win, &class_hint);
       }
 
-      XStoreName(data.display, data.win, title);
+      XStoreName(data.display, data.win, title.data());
 
       data.width = w;
       data.height = h;
@@ -456,13 +453,8 @@ namespace window {
       return window::SUCCESS;
     } // pollevents
 
-    ::window::result make_gfx_context(window_x11_data& data) noexcept {
-      if (data.hintmem == nullptr) {
-        ::window::log_error(::window::LOG_X11, "data.hintmem is a nullptr");
-        return window::BADWINDOW;
-      }
-
-      switch (data.hintmem->gfx_backend) {
+    ::window::result make_gfx_context(window_x11_data& data, graphics_backend gfx_backend) noexcept {
+      switch (gfx_backend) {
         case window::GRAPHICS_OPENGL: {
           // Nothing to do in x11, because we need to create the window
           // with a opengl context :)
@@ -475,7 +467,7 @@ namespace window {
           }
 
           // create framebuffer with 1:1 ratio to window screen size
-          return resize_framebuffer(data, 0, 0);
+          return resize_framebuffer(data, gfx_backend, 0, 0);
         }
         default: {
           ::window::log_error(::window::LOG_X11, "Unsupported gfx backend!");
@@ -486,13 +478,8 @@ namespace window {
       return window::SUCCESS;
     }
 
-    ::window::result resize_framebuffer(window_x11_data& data, int width, int height) noexcept {
-      if (data.hintmem == nullptr) {
-        ::window::log_error(::window::LOG_X11, "data.hintmem is a nullptr");
-        return window::BADWINDOW;
-      }
-
-      if (data.hintmem->gfx_backend != GRAPHICS_FRAMEBUFFER) {
+    ::window::result resize_framebuffer(window_x11_data& data, graphics_backend gfx_backend, int width, int height) noexcept {
+      if (gfx_backend != GRAPHICS_FRAMEBUFFER) {
         ::window::log_error(::window::LOG_X11, "selected graphics backend is not suitable for resize_framebuffer");
         return window::UNSUPPORTED;
       }
@@ -547,13 +534,8 @@ namespace window {
       return window::SUCCESS;
     }
     
-    ::window::result swap_buffers(const window_x11_data& data) noexcept {
-      if (data.hintmem == nullptr) {
-        ::window::log_error(::window::LOG_X11, "data.hintmem is a nullptr");
-        return window::BADWINDOW;
-      }
-
-      switch (data.hintmem->gfx_backend) {
+    ::window::result swap_buffers(const window_x11_data& data, graphics_backend gfx_backend) noexcept {
+      switch (gfx_backend) {
         case window::GRAPHICS_OPENGL: {
           glXSwapBuffers(data.display, data.win);
           break;
@@ -678,13 +660,8 @@ namespace window {
       return window::SUCCESS;
     }
 
-    ::window::result swap_interval(const window_x11_data& data, int interval) noexcept {
-      if (data.hintmem == nullptr) {
-        ::window::log_error(::window::LOG_X11, "data.hintmem is a nullptr");
-        return window::BADWINDOW;
-      }
-
-      if (data.hintmem->gfx_backend != window::GRAPHICS_OPENGL) {
+    ::window::result swap_interval(const window_x11_data& data, graphics_backend gfx_backend, int interval) noexcept {
+      if (gfx_backend != window::GRAPHICS_OPENGL) {
         ::window::log_warning(::window::LOG_X11, "wrong graphics backend selected");
         return window::UNSUPPORTED;
       }

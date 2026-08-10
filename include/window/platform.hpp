@@ -11,7 +11,6 @@
 
   #include "graphics.hpp"
   #include "input.hpp"
-  #include "hints.hpp"
 
   #if defined(window_os_linux)
     #define window_api __attribute__((visibility("default")))

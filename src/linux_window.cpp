@@ -22,20 +22,17 @@ namespace window {
 
   window::window() noexcept {
     input = {};
-    hintmem = {};
     fb = {};
     #ifdef window_x11
       x11 = {};
       memset(&x11, 0, sizeof(x11));
       x11.input   = &input;
-      x11.hintmem = &hintmem;
       x11.fb      = &fb;
     #endif
     #ifdef window_wl
       wl = {};
       memset(&wl, 0, sizeof(wl));
       wl.input   = &input;
-      wl.hintmem = &hintmem;
       wl.fb      = &fb;
     #endif
   }
@@ -44,21 +41,28 @@ namespace window {
     destroy();
   }
 
-  result window::create(int width, int height, const char* title) noexcept {
+  result window::create(config& c) noexcept {
+    result res;
+    std::memcpy(&this->input, &c.input, sizeof(input_data));
+    gfx_backend = c.gfx_backend;
     #ifdef window_wl
-      result wl_result = wl::create_window(wl, width, height, title);
-      #ifdef window_x11
-        if (wl_result == SUCCESS) {
-          return SUCCESS;
-        }
-      #endif
+      res = wl::create_window(
+        wl, c.width, c.height, c.win_title, c.class_name
+      );
+
+      if (res == SUCCESS) {
+        return wl::make_gfx_context(wl, gfx_backend, c.glmajor, c.glminor);
+      }
     #endif
     #ifdef window_x11
-      return x11::create_window(x11, width, height, title);
+      res = x11::create_window(
+        x11, c.width, c.height, c.win_title, gfx_backend, c.glmajor, c.glminor, c.class_name
+      );
+      if (res == SUCCESS) {
+        return x11::make_gfx_context(x11, gfx_backend);
+      }
     #endif
-    #if defined(window_wl) && !defined(window_x11)
-      return wl_result;
-    #endif
+    return res;
   }
 
   result window::set_title(const char* title) const noexcept {
@@ -119,45 +123,31 @@ namespace window {
     #endif
   }
 
-  result window::make_gfx_context() noexcept {
-    #if defined(window_wl) && defined(window_x11)
-      if (is_valid_wl(wl)) {
-        return wl::make_gfx_context(wl);
-      }
-    #endif
-    #ifdef window_x11
-      return x11::make_gfx_context(x11);
-    #endif
-    #if defined(window_wl) && !defined(window_x11)
-      return wl::make_gfx_context(wl);
-    #endif
-  }
-
   result window::resize_framebuffer(int width, int height) noexcept {
     #if defined(window_wl) && defined(window_x11)
       if (is_valid_wl(wl)) {
-        return wl::resize_framebuffer(wl, width, height);
+        return wl::resize_framebuffer(wl, gfx_backend, width, height);
       }
     #endif
     #ifdef window_x11
-      return x11::resize_framebuffer(x11, width, height);
+      return x11::resize_framebuffer(x11, gfx_backend, width, height);
     #endif
     #if defined(window_wl) && !defined(window_x11)
-      return wl::resize_framebuffer(wl, width, height);
+      return wl::resize_framebuffer(wl, gfx_backend, width, height);
     #endif
   }
 
   result window::swap_buffers() noexcept {
     #if defined(window_wl) && defined(window_x11)
       if (is_valid_wl(wl)) {
-        return wl::swap_buffers(wl);
+        return wl::swap_buffers(wl, gfx_backend);
       }
     #endif
     #ifdef window_x11
-      return x11::swap_buffers(x11);
+      return x11::swap_buffers(x11, gfx_backend);
     #endif
     #if defined(window_wl) && !defined(window_x11)
-      return wl::swap_buffers(wl);
+      return wl::swap_buffers(wl, gfx_backend);
     #endif
   }
 
@@ -168,7 +158,7 @@ namespace window {
       }
     #endif
     #ifdef window_x11
-      return x11::swap_interval(x11, interval);
+      return x11::swap_interval(x11, gfx_backend, interval);
     #endif
     #if defined(window_wl) && !defined(window_x11)
       return wl::swap_interval(wl, interval);
@@ -235,40 +225,6 @@ namespace window {
     #if defined(window_wl) && !defined(window_x11)
       return ::window::backend::WAYLAND;
     #endif
-  }
-
-  void window::set_appname(const char* appname) noexcept {
-    hintmem.appname = appname ? appname : "";
-  }
-  
-  void window::set_glversion(int major, int minor) noexcept {
-    hintmem.glvmajor = major;
-    hintmem.glvminor = minor;
-  }
-
-  result window::set_gfx_backend(graphics_backend backend) noexcept {
-    if (this->is_open()) {
-      #if defined(window_wl) && defined(window_x11)
-        if (is_valid_wl(wl)) {
-          ::window::log_error(::window::LOG_WL, "window is already created");
-        } else {
-          ::window::log_error(::window::LOG_X11, "window is already created");
-        }
-      #else
-        #ifdef window_x11
-          ::window::log_error(::window::LOG_X11, "window is already created");
-        #elif defined(window_wl)
-          ::window::log_error(::window::LOG_WL, "window is already created");
-        #endif
-      #endif
-      return ::window::ALREADYEXISTS;
-    }
-    hintmem.gfx_backend = backend;
-    return ::window::SUCCESS;
-  }
-
-  graphics_backend window::get_gfx_backend() const noexcept {
-    return hintmem.gfx_backend;
   }
 
   std::uint32_t* window::framebuffer_pixels() noexcept {

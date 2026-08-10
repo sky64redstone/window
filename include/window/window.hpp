@@ -3,6 +3,7 @@
 
   #include "input.hpp"
   #include "platform.hpp"
+  #include "config.hpp"
 
   #if defined(window_x11)
     #include "x11.hpp"
@@ -28,19 +29,17 @@
       #endif
 
       input_data input;
-      hint_data  hintmem;
       framebuffer_data fb;
+      graphics_backend gfx_backend;
 
     public:
       window() noexcept;
       ~window() noexcept;
 
       /*
-       * Create a new window.
+       * Create a new window with preconfigured data.
        *
-       * width:  The inital width in pixels of the window
-       * height: The inital height in pixels of the window
-       * title:  ASCII encoded name of the window
+       * c: config instance
        *
        * returns: result::SUCCESS on success, otherwise failure
        *
@@ -50,7 +49,7 @@
        * SEE:  window::result in include/platform.hpp for detailed failure codes
        *       window::window.set_size_event(...) for a size event callback
        */
-      result create(int width, int height, const char* title) noexcept;
+      result create(config& c) noexcept;
 
       /*
        * Sets the window title.
@@ -92,22 +91,6 @@
        * NOTE: this function is non-blocking
        */
       result poll_events() noexcept;
-
-      /*
-       * Creates a graphics context for the current window.
-       * The type of the context is determined by the current set
-       * graphics backend.
-       * 
-       * returns: result::SUCCESS on success, otherwise failure
-       *
-       * NOTE: If the gfx backend is set to GRAPHICS_FRAMEBUFFER, then
-       *       this creates the framebuffer with the current window size.
-       *       This function should be called before any graphics function
-       *
-       * SEE: set_gfx_backend(graphics_backend)
-       *      get_gfx_backend()
-       */
-      result make_gfx_context() noexcept;
 
       /*
        * Resizes the current framebuffer to a specified size.
@@ -219,44 +202,11 @@
       size_event_callback   set_size_event(size_event_callback      func) noexcept;
 
       /*
-       * The appname is used for identifying all windows that belong 
-       * to an certain app. Using the default name, may impact user experience.
-       * Needs to be set before creating the window.
-       *
-       * NOTE: window hint (data may be ignored by the operating system)
-       */
-      void set_appname(const char* appname) noexcept;
-
-      /*
-       * Specifies a desired opengl version.
-       * Needs to be set before creating the window.
-       *
-       * NOTE: window hint (data may be ignored by the operating system)
-       */
-      void set_glversion(int major, int minor) noexcept;
-
-      /*
        * Checks which window backend is being used. (usefull on linux)
        *
        * returns: window backend
        */
       backend get_backend() const noexcept;
-
-      /*
-       * Returns the currently used graphics backend
-       *
-       * returns: graphics backend
-       */
-      graphics_backend get_gfx_backend() const noexcept;
-
-      /*
-       * Sets the graphics backend. The default is GRAPHICS_OPENGL.
-       *
-       * returns: result::SUCCESS on success, otherwise failure
-       *
-       * NOTE: This function will fail if a current graphics context exists.
-       */
-      result set_gfx_backend(graphics_backend backend) noexcept;
 
       /*
        * Returns the pointer to the framebuffer. Pixel encoding is ARGB.

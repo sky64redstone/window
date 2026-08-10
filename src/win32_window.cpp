@@ -1,6 +1,6 @@
 #include "window/window.hpp"
 
-#include <stdio.h>
+#include <cstring>
 
 #include "window/log.hpp"
 
@@ -217,7 +217,6 @@ namespace window {
   window::window() noexcept {
     os_to_key(0); // pre load keys
     input = {};
-    hintmem = {};
     win32 = {};
     win32.input = &input;
     win32.win = nullptr;
@@ -234,92 +233,57 @@ namespace window {
     destroy();
   }
   
-  result window::create(int width, int height, const char* title) noexcept {
-    static ATOM classAtom = 0;
+  result window::create(config& c) noexcept {
+    std::memcpy(&this->input, &c.input, sizeof(input_data));
+    gfx_backend = c.gfx_backend;
 
     HINSTANCE inst = GetModuleHandleA(nullptr);
 
-    if (classAtom == 0) {
-      WNDCLASSA wcls{
-        .style         = CS_HREDRAW | CS_VREDRAW | CS_OWNDC | CS_DBLCLKS,
-        .lpfnWndProc   = win32::global_window_event,
-        .cbClsExtra    = 0,
-        .cbWndExtra    = 0,
-        .hInstance     = inst,
-        .hIcon         = LoadIcon(inst, IDI_APPLICATION),
-        .hCursor       = LoadCursor(inst, IDC_ARROW),
-        .hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1),
-        .lpszMenuName  = nullptr,
-        .lpszClassName = hintmem.appname.empty() ?
-                           "window_api::window" :
-                           hintmem.appname.c_str()
-      };
+    WNDCLASSA wcls{
+      .style         = CS_HREDRAW | CS_VREDRAW | CS_OWNDC | CS_DBLCLKS,
+      .lpfnWndProc   = win32::global_window_event,
+      .cbClsExtra    = 0,
+      .cbWndExtra    = 0,
+      .hInstance     = inst,
+      .hIcon         = LoadIcon(inst, IDI_APPLICATION),
+      .hCursor       = LoadCursor(inst, IDC_ARROW),
+      .hbrBackground = reinterpret_cast<HBRUSH>(COLOR_WINDOW + 1),
+      .lpszMenuName  = nullptr,
+      .lpszClassName = c.class_name.empty() ?
+                         "window_api::window" :
+                         c.class_name.data()
+    };
 
-      classAtom = RegisterClassA(&wcls);
-    }
+    ATOM classAtom = RegisterClassA(&wcls);
 
     constexpr DWORD exstyle = WS_EX_APPWINDOW | WS_EX_WINDOWEDGE;
     constexpr DWORD style   = WS_TILEDWINDOW | WS_VISIBLE;
 
     // Calculate the client size
-    RECT rect = { 0, 0, width, height };
+    RECT rect = { 0, 0, c.width, c.height };
     AdjustWindowRectEx(&rect, style, FALSE, exstyle);
-    width = rect.right - rect.left;
-    height = rect.bottom - rect.top;
+    c.width = rect.right - rect.left;
+    c.height = rect.bottom - rect.top;
 
     win32.win = CreateWindowExA(
       exstyle,
       MAKEINTATOM(classAtom),
-      title,
+      c.win_title.data(),
       style,
       CW_USEDEFAULT, CW_USEDEFAULT,
-      width, height,
+      c.width, c.height,
       nullptr, nullptr,
       inst,
       reinterpret_cast<LPVOID>(&win32)
     );
 
     if (win32.win == NULL) {
-      fprintf(stderr, "[window] win32: Couldn't open a window!!!\n");
+      log_error(LOG_WIN, "Couldn't open a window!");
       return CREATIONFAILED;
     }
 
     win32.isopen = true;
 
-    return SUCCESS;
-  }
-
-  result window::set_title(const char* title) const noexcept {
-    BOOL success = SetWindowTextA(win32.win, title);
-    return success != 0 ? SUCCESS : UNKNOWNFAILURE;
-  }
-
-  result window::set_size(int w, int h) noexcept {
-    BOOL success = SetWindowPos(win32.win, nullptr, 0, 0, w, h, SWP_NOMOVE | SWP_NOZORDER);
-    return success != 0 ? SUCCESS : UNKNOWNFAILURE;
-  }
-
-  bool window::is_open() const noexcept {
-    return win32.isopen;
-  }
-
-  result window::poll_events() noexcept {
-    MSG msg;
-    while (PeekMessage(&msg, win32.win, 0, 0, PM_REMOVE)) {
-      if (msg.message == WM_QUIT) {
-        return QUIT;
-      }
-      TranslateMessage(&msg);
-      DispatchMessage(&msg);
-    }
-    return SUCCESS;
-  }
-
-  result window::make_gfx_context() noexcept {
-    if (win32.dc != NULL) {
-      log_error(LOG_WIN, "Device context already exists");
-      return ALREADYEXISTS;
-    }
     win32.dc = GetDC(win32.win);
 
     if (win32.dc == NULL) {
@@ -327,7 +291,7 @@ namespace window {
       return BADWINDOW;
     }
 
-    switch (hintmem.gfx_backend) {
+    switch (gfx_backend) {
       case GRAPHICS_FRAMEBUFFER: {
         if (fb.pixels != nullptr) {
           ::window::log_error(::window::LOG_WIN, "framebuffer already exists");
@@ -372,7 +336,7 @@ namespace window {
         }
 
         // do we need to create a specific context?
-        if (hintmem.glvmajor > 0 && hintmem.glvminor >= 0) {
+        if (c.glmajor > 0 && c.glminor >= 0) {
           // create temp context for loading wglCreateContextAttribsARB
           HGLRC temp = nullptr;
           if (!win32::wglCreateContextAttribsARB) {
@@ -405,8 +369,8 @@ namespace window {
             WGL_CONTEXT_PROFILE_MASK_ARB,
             WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
 
-            WGL_CONTEXT_MAJOR_VERSION_ARB, hintmem.glvmajor,
-            WGL_CONTEXT_MINOR_VERSION_ARB, hintmem.glvminor,
+            WGL_CONTEXT_MAJOR_VERSION_ARB, c.glmajor,
+            WGL_CONTEXT_MINOR_VERSION_ARB, c.glminor,
 
             #ifdef _DEBUG
             WGL_CONTEXT_FLAGS_ARB,
@@ -421,7 +385,7 @@ namespace window {
           HGLRC modern = win32::wglCreateContextAttribsARB(win32.dc, 0, attribs);
 
           if (!modern) {
-            log_error(LOG_WIN, "Failed to create OpenGL %i.%i context", hintmem.glvmajor, hintmem.glvminor);
+            log_error(LOG_WIN, "Failed to create OpenGL %i.%i context", c.glmajor, c.glminor);
             ReleaseDC(win32.win, win32.dc);
             return CREATIONFAILED;
           }
@@ -469,8 +433,34 @@ namespace window {
     return SUCCESS;
   }
 
+  result window::set_title(const char* title) const noexcept {
+    BOOL success = SetWindowTextA(win32.win, title);
+    return success != 0 ? SUCCESS : UNKNOWNFAILURE;
+  }
+
+  result window::set_size(int w, int h) noexcept {
+    BOOL success = SetWindowPos(win32.win, nullptr, 0, 0, w, h, SWP_NOMOVE | SWP_NOZORDER);
+    return success != 0 ? SUCCESS : UNKNOWNFAILURE;
+  }
+
+  bool window::is_open() const noexcept {
+    return win32.isopen;
+  }
+
+  result window::poll_events() noexcept {
+    MSG msg;
+    while (PeekMessage(&msg, win32.win, 0, 0, PM_REMOVE)) {
+      if (msg.message == WM_QUIT) {
+        return QUIT;
+      }
+      TranslateMessage(&msg);
+      DispatchMessage(&msg);
+    }
+    return SUCCESS;
+  }
+
   result window::resize_framebuffer(int width, int height) noexcept {
-    if (hintmem.gfx_backend != GRAPHICS_FRAMEBUFFER) {
+    if (gfx_backend != GRAPHICS_FRAMEBUFFER) {
       ::window::log_error(::window::LOG_WIN, "selected graphics backend is not suitable for resize_framebuffer");
       return UNSUPPORTED;
     }
@@ -508,7 +498,7 @@ namespace window {
   }
 
   result window::swap_buffers() noexcept {
-    switch (hintmem.gfx_backend) {
+    switch (gfx_backend) {
       case GRAPHICS_OPENGL: {
         BOOL success = SwapBuffers(win32.dc);
         return success ? SUCCESS : UNKNOWNFAILURE;
@@ -598,26 +588,8 @@ namespace window {
     return temp;
   }
 
-  void window::set_appname(const char* appname) noexcept {
-    hintmem.appname = appname ? appname : "";
-  }
-
-  void window::set_glversion(int major, int minor) noexcept {
-    hintmem.glvmajor = major;
-    hintmem.glvminor = minor;
-  }
-
   backend window::get_backend() const noexcept {
     return ::window::backend::WINDOWS;
-  }
-  
-  graphics_backend window::get_gfx_backend() const noexcept {
-    return hintmem.gfx_backend;
-  }
-
-  result window::set_gfx_backend(graphics_backend backend) noexcept {
-    hintmem.gfx_backend = backend;
-    return SUCCESS;
   }
 
   const std::uint32_t* window::framebuffer_pixels() const noexcept {
