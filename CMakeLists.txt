@@ -10,6 +10,15 @@ macro(dependent_option OPTION_NAME OPTION_DESC DEFAULT_VALUE DEP_CONDITION)
     endif()
 endmacro()
 
+macro(wl_scanner SCANNER XML_FILE HEADER SRC)
+  add_custom_command(
+      OUTPUT ${SRC} ${HEADER}
+      COMMAND ${SCANNER} client-header ${XML_FILE} ${HEADER}
+      COMMAND ${SCANNER} private-code ${XML_FILE} ${SRC}
+      DEPENDS ${XML_FILE}
+  )
+endmacro()
+
 # Enable Hot Reload for MSVC compilers if supported.
 if (POLICY CMP0141)
   cmake_policy(SET CMP0141 NEW)
@@ -58,25 +67,21 @@ if (window_wl)
   set(XDG_DECOR_XML
       ${WAYLAND_PROTOCOL_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml)
 
+  set(VIEWPORTER_XML
+      ${WAYLAND_PROTOCOL_DIR}/stable/viewporter/viewporter.xml)
+
   set(XDG_SHELL_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/xdg-shell-protocol.c)
   set(XDG_SHELL_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/xdg-shell-client-protocol.h)
 
   set(XDG_DECOR_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/xdg-decoration-protocol.c)
   set(XDG_DECOR_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/xdg-decoration-client-protocol.h)
 
-  add_custom_command(
-      OUTPUT ${XDG_SHELL_SOURCE} ${XDG_SHELL_HEADER}
-      COMMAND ${WAYLAND_SCANNER} client-header ${XDG_SHELL_XML} ${XDG_SHELL_HEADER}
-      COMMAND ${WAYLAND_SCANNER} private-code ${XDG_SHELL_XML} ${XDG_SHELL_SOURCE}
-      DEPENDS ${XDG_SHELL_XML}
-  )
+  set(VIEWPORTER_SOURCE ${CMAKE_CURRENT_SOURCE_DIR}/src/viewporter-protocol.c)
+  set(VIEWPORTER_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/viewporter-client-protocol.h)
 
-  add_custom_command(
-      OUTPUT ${XDG_DECOR_SOURCE} ${XDG_DECOR_HEADER}
-      COMMAND ${WAYLAND_SCANNER} client-header ${XDG_DECOR_XML} ${XDG_DECOR_HEADER}
-      COMMAND ${WAYLAND_SCANNER} private-code ${XDG_DECOR_XML} ${XDG_DECOR_SOURCE}
-      DEPENDS ${XDG_DECOR_XML}
-  )
+  wl_scanner(${WAYLAND_SCANNER} ${XDG_SHELL_XML} ${XDG_SHELL_HEADER} ${XDG_SHELL_SOURCE})
+  wl_scanner(${WAYLAND_SCANNER} ${XDG_DECOR_XML} ${XDG_DECOR_HEADER} ${XDG_DECOR_SOURCE})
+  wl_scanner(${WAYLAND_SCANNER} ${VIEWPORTER_XML} ${VIEWPORTER_HEADER} ${VIEWPORTER_SOURCE})
 
   add_custom_target(wayland_protocols
       DEPENDS
@@ -84,16 +89,20 @@ if (window_wl)
           ${XDG_SHELL_HEADER}
           ${XDG_DECOR_SOURCE}
           ${XDG_DECOR_HEADER}
+          ${VIEWPORTER_SOURCE}
+          ${VIEWPORTER_HEADER}
   )
 
   set(WL_GENERATED_SOURCES
       ${XDG_SHELL_SOURCE}
       ${XDG_DECOR_SOURCE}
+      ${VIEWPORTER_SOURCE}
   )
 
   set(WL_GENERATED_HEADERS
       ${XDG_SHELL_HEADER}
       ${XDG_DECOR_HEADER}
+      ${VIEWPORTER_HEADER}
   )
 endif()
 

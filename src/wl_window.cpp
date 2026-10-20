@@ -126,6 +126,10 @@ namespace window::wl {
         win_data->shm = static_cast<wl_shm*>(
           wl_registry_bind(registry, id, &wl_shm_interface, 1)
         );
+      } else if (strcmp(interface, wp_viewporter_interface.name) == 0) {
+        win_data->viewporter = static_cast<wp_viewporter*>(
+          wl_registry_bind(registry, id, &wp_viewporter_interface, 1)
+        );
       }
     } else {
       ::window::log_error(window::LOG_WL, "Received nullpointer data");
@@ -171,6 +175,24 @@ namespace window::wl {
     win->width = width;
     win->height = height;
 
+    if (win->fb && win->viewport) {
+      wp_viewport_set_source(
+        win->viewport,
+        0,
+        0,
+        wl_fixed_from_int(win->fb->width),
+        wl_fixed_from_int(win->fb->height)
+      );
+
+      wp_viewport_set_destination(
+        win->viewport,
+        width,
+        height
+      );
+    }
+
+    log_warning(LOG_WL, "resize");
+
     // Resize EGL window if it exists
     if (win->egl_window)
       wl_egl_window_resize(win->egl_window, width, height, 0, 0);
@@ -178,9 +200,8 @@ namespace window::wl {
     if (win->input && win->input->size_event)
       win->input->size_event(width, height, win->input->user_data);
 
-    // Update surface geometry in xdg_surface.configure
-    //xdg_surface_set_window_geometry(win->xsurface, 0, 0, width, height);
-    //wl_surface_commit(win->surface);
+    xdg_surface_set_window_geometry(win->xsurface, 0, 0, width, height);
+    wl_surface_commit(win->surface);
   }
 
   static const xdg_toplevel_listener toplevel_listener = {
@@ -639,6 +660,23 @@ namespace window::wl {
         if (out != ::window::SUCCESS) {
           return out;
         }
+
+        data.viewport = wp_viewporter_get_viewport(data.viewporter, data.surface);
+
+        wp_viewport_set_source(
+          data.viewport,
+          0,
+          0,
+          wl_fixed_from_int(data.fb->width),
+          wl_fixed_from_int(data.fb->height)
+        );
+
+        wp_viewport_set_destination(
+          data.viewport,
+          data.width,
+          data.height
+        );
+
         break;
       }
     }

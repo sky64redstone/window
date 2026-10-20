@@ -10,6 +10,7 @@
 
   #include "xdg-shell-client-protocol.h"
   #include "xdg-decoration-client-protocol.h"
+  #include "viewporter-client-protocol.h"
 
   #include "platform.hpp"
 
@@ -47,6 +48,8 @@
     wl_buffer*     buffer;
     std::size_t    buffer_size; // total mapped size TODO: remove/combine with x11
     bool           buffer_busy; // TODO: mb combine with x11
+    wp_viewporter* viewporter;  // used for scaling the framebuffer to a surface
+    wp_viewport*   viewport;
 
     bool           isopen;
     int            width;
