@@ -191,8 +191,6 @@ namespace window::wl {
       );
     }
 
-    log_warning(LOG_WL, "resize");
-
     // Resize EGL window if it exists
     if (win->egl_window)
       wl_egl_window_resize(win->egl_window, width, height, 0, 0);

@@ -8,9 +8,7 @@ namespace window {
 
   namespace x11 {
     using glXCreateContextAttribsARBProc =
-      GLXContext(*)(
-        Display*, GLXFBConfig, GLXContext, Bool, const int*
-      );
+      GLXContext(*)(Display*, GLXFBConfig, GLXContext, Bool, const int*);
     inline glXCreateContextAttribsARBProc glXCreateContextAttribsARB = nullptr;
 
     void load_create_context_attribs() {
@@ -480,7 +478,10 @@ namespace window {
 
     ::window::result resize_framebuffer(window_x11_data& data, graphics_backend gfx_backend, int width, int height) noexcept {
       if (gfx_backend != GRAPHICS_FRAMEBUFFER) {
-        ::window::log_error(::window::LOG_X11, "selected graphics backend is not suitable for resize_framebuffer");
+        ::window::log_error(
+          ::window::LOG_X11, 
+          "selected graphics backend is not suitable for resize_framebuffer"
+        );
         return window::UNSUPPORTED;
       }
 
@@ -569,7 +570,8 @@ namespace window {
             return window::BADWINDOW;
           }
 
-          std::size_t scaled_count = static_cast<std::size_t>(win_width) * static_cast<std::size_t>(win_height);
+          std::size_t scaled_count = static_cast<std::size_t>(win_width) * 
+                                     static_cast<std::size_t>(win_height);
 
           std::uint32_t* scaled = new (std::nothrow) std::uint32_t[scaled_count];
 
@@ -591,11 +593,11 @@ namespace window {
               src_y = src_height - 1;
             }
 
-            const std::uint32_t* src_row =
-            data.fb->pixels + static_cast<std::size_t>(src_y) * src_stride;
+            const std::uint32_t* src_row = data.fb->pixels +
+              static_cast<std::size_t>(src_y) * src_stride;
 
-            std::uint32_t* dst_row =
-            scaled + static_cast<std::size_t>(y) * win_width;
+            std::uint32_t* dst_row = scaled + 
+              static_cast<std::size_t>(y) * win_width;
 
             for (int x = 0; x < win_width; ++x) {
               int src_x = static_cast<int>(
@@ -620,7 +622,7 @@ namespace window {
             win_width,
             win_height,
             32,
-            0
+            win_width * sizeof(std::uint32_t)
           );
 
           if (image == nullptr) {

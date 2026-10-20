@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <GL/gl.h>
 
+static const bool use_opengl = true;
+
 static void key_event(bool down, window::key_descriptor& k, void* data) noexcept {
   if (down)
     printf("Key pressed: %s\n", k.description);
@@ -53,18 +55,17 @@ static void size_event(int w, int h, void* data) noexcept {
     printf("Window resized: %i, %i\n", w, h);
   }
 
-  glViewport(0, 0, w, h);
+  if (use_opengl)
+    glViewport(0, 0, w, h);
 }
 
 int main() {
-  bool use_opengl = false;
-
   window::config c;
   window::window win{};
 
   if (use_opengl) {
     c.opengl()
-    .version(3,3);
+     .version(3,3);
   } else {
     c.framebuffer();
   }
@@ -74,6 +75,7 @@ int main() {
     c.title("Test! :)")
      .size(300, 200)
      .app_name("myappname")
+     .user_data(&win)
      // event callback config
      .on_key(key_event)
      .on_mouse_move(mouse_event)
